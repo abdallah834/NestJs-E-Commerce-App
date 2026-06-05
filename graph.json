@@ -1,0 +1,11 @@
+Error: Nest can't resolve dependencies of the AuthenticationService (?). Please make sure that the argument Function at index [0] is available in the AuthenticationModule module.
+
+Potential solutions:
+- Is AuthenticationModule a valid NestJS module?
+- If Function is a provider, is it part of the current AuthenticationModule?
+- If Function is exported from a separate @Module, is that module imported within AuthenticationModule?
+  @Module({
+    imports: [ /* the Module containing Function */ ]
+  })
+
+For more common dependency resolution issues, see: https://docs.nestjs.com/faq/common-errors
