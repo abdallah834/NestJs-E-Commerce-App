@@ -1,6 +1,11 @@
-import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Patch, Post, ValidationPipe } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
-import { LoginBodyDTO, SignupBodyDTO } from './dto/authentication.dto';
+import {
+  ConfirmEmail,
+  LoginBodyDTO,
+  ResendConfirmationEmail,
+  SignupBodyDTO,
+} from './dto/authentication.dto';
 // to use any controllers we add the controller to the app.module.ts file
 // assigning an string argument to the controller basically acts as previous path (auth/signup | auth/login)
 // instead of using a certain pipe on individual endpoints we can use on the entire controller or globally on the app
@@ -60,5 +65,31 @@ export class AuthenticationController {
   ) {
     console.log(body);
     return 'Login Page';
+  }
+
+  @Patch('confirmEmail')
+  async confirmEmail(
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+    body: ConfirmEmail,
+  ) {
+    await this.authenticationService.confirmEmail(body);
+    return {
+      message: 'Account confirmation completed',
+      status: 201,
+    };
+  }
+
+  @Patch('resendConfirmationEmail')
+  async resendConfirmationEmail(
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+    body: ResendConfirmationEmail,
+  ) {
+    {
+      await this.authenticationService.resendConfirmationEmail(body);
+      return {
+        message: 'OTP resent successfully',
+        status: 200,
+      };
+    }
   }
 }

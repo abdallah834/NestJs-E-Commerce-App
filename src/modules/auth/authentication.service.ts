@@ -5,7 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRepo } from 'src/common/repository';
-import { SignupBodyDTO } from './dto/authentication.dto';
+import {
+  ConfirmEmail,
+  ResendConfirmationEmail,
+  SignupBodyDTO,
+} from './dto/authentication.dto';
 import { CacheService } from 'src/common/services/redis/caching.service';
 import { EmailService, SecurityService } from 'src/common/services';
 import { IUser } from 'src/common/interfaces';
@@ -70,7 +74,7 @@ export class AuthenticationService {
 
     return user;
   }
-  async confirmEmail({ email, otp }: { email: string; otp: string }) {
+  async confirmEmail({ email, otp }: ConfirmEmail) {
     const existingAcc = await this.userRepository.findOne({
       filter: {
         email,
@@ -114,7 +118,7 @@ export class AuthenticationService {
     return;
   }
 
-  async resendConfirmationEmail({ email }: { email: string }) {
+  async resendConfirmationEmail({ email }: ResendConfirmationEmail) {
     const account = await this.userRepository.findOne({
       filter: {
         email,

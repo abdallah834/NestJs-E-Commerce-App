@@ -61,7 +61,27 @@ export class SignupBodyDTO extends LoginBodyDTO {
   })
   phone?: string;
 }
-
+export class ResendConfirmationEmail {
+  @IsEmail({}, { message: 'Incorrect email format' })
+  @IsNotEmpty()
+  email!: string;
+}
+export class ConfirmEmail extends ResendConfirmationEmail {
+  @Matches(/^\d{6}$/, { message: 'Please make sure to enter a valid OTP code' })
+  @IsNotEmpty()
+  otp!: string;
+}
+export class GmailTokenAndIss {
+  @IsNotEmpty()
+  idToken!: string;
+  @IsNotEmpty()
+  issuer!: string;
+}
+export class VerifyPasswordReset extends ConfirmEmail {
+  @IsStrongPassword()
+  @IsNotEmpty()
+  newPassword!: string;
+}
 export class ParamsDTO {
   // @Transform
   flag!: boolean;
