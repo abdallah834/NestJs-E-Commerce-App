@@ -7,6 +7,7 @@ import {
 import { UserRepo } from 'src/common/repository';
 import {
   ConfirmEmail,
+  LoginBodyDTO,
   ResendConfirmationEmail,
   SignupBodyDTO,
 } from './dto/authentication.dto';
@@ -73,6 +74,62 @@ export class AuthenticationService {
     });
 
     return user;
+  }
+  async login({ email, password, FCM }: LoginBodyDTO, issuer: string) {
+    // : Promise<{ accessToken: string; refreshToken: string }>
+    console.log(issuer);
+    const user = await this.userRepository.findOne({
+      filter: {
+        email,
+        provider: ProviderEnums.SYSTEM,
+        confirmedAt: { $exists: true },
+      },
+    });
+    if (!user) {
+      throw new NotFoundException(
+        'Please make sure to verify your account before login',
+      );
+    }
+
+    if (
+      !(await this.securityService.compareHash(
+        user.password as string,
+        password,
+      ))
+    ) {
+      throw new BadRequestException('Invalid login credentials');
+    }
+
+    // user.phone = this.securityService.decrypt(user.phone as string);
+    ///////////////// handling 2FA
+    // if (user.TFAEnabled) {
+    //   await generateAndSendConfirmationOtp(user.email);
+    //   await redisSet({
+    //     key: otp2FAVerification(user.email),
+    //     value: await createLoginTokens(user, issuer),
+    //     ttl: 120,
+    //   });
+    //   return "2FA";
+    // }
+    // handling multiple FCM tokens
+    if (FCM) {
+      await this.redisService.addFCM(user.id, FCM);
+      const tokens = await this.redisService.getFCMs(user.id);
+      if (tokens.length) {
+        // const currentDate = new Date().toLocaleString().split(',');
+        ////////////////////////// notification
+        // await this.notification.sendMultipleNotifications({
+        //   tokens,
+        //   data: {
+        //     title: 'Logged in successfully',
+        //     body: `Logged in on ${currentDate[0]} at ${currentDate[1]}`,
+        //   },
+        // });
+      }
+    }
+    //////////////////////////////////////////// using a secret key based on the user's role (admin | user)
+    // return await createLoginTokens(user, issuer);
+    // return this.tokenService.createLoginTokens(user, issuer);
   }
   async confirmEmail({ email, otp }: ConfirmEmail) {
     const existingAcc = await this.userRepository.findOne({

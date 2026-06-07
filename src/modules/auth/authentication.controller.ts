@@ -1,4 +1,11 @@
-import { Body, Controller, Patch, Post, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Patch,
+  Post,
+  Req,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import {
   ConfirmEmail,
@@ -6,6 +13,7 @@ import {
   ResendConfirmationEmail,
   SignupBodyDTO,
 } from './dto/authentication.dto';
+import type { Request } from 'express';
 // to use any controllers we add the controller to the app.module.ts file
 // assigning an string argument to the controller basically acts as previous path (auth/signup | auth/login)
 // instead of using a certain pipe on individual endpoints we can use on the entire controller or globally on the app
@@ -59,12 +67,17 @@ export class AuthenticationController {
   // to change the status code of a response we use
   // @HttpCode(HttpStatus.OK)
   @Post('login')
-  login(
+  async login(
+    @Req()
+    req: Request,
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     body: LoginBodyDTO,
   ) {
-    console.log(body);
-    return 'Login Page';
+    const loginTokens = await this.authenticationService.login(
+      body,
+      `${req.protocol}://${req.host}`,
+    );
+    return { message: 'Login success but tokens still need to be implemented' };
   }
 
   @Patch('confirmEmail')
