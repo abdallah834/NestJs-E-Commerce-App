@@ -1,41 +1,27 @@
 import { Module } from '@nestjs/common';
-import { UserRepo } from 'src/common/repository';
-import { UserModel } from 'src/models';
+import { EmailService, SecurityService } from 'src/common/services';
+import { SharedAuthenticationModule } from 'src/common/sharedModules';
 import { AuthenticationController } from './authentication.controller';
 import { AuthenticationService } from './authentication.service';
-import { ConfigService } from '@nestjs/config';
-import { Redis } from 'ioredis';
-import { CacheService } from 'src/common/services/redis/caching.service';
-import { EmailService, SecurityService } from 'src/common/services';
+
 @Module({
-  imports: [UserModel],
+  imports: [SharedAuthenticationModule],
   // to not redeclare another instance in multiple places which is a bad practice and can cause unnecessary performance issues we export already used services or controllers along with the main module
   controllers: [AuthenticationController],
-  exports: ['Redis_Client'],
-  providers: [
-    AuthenticationService,
-    UserRepo,
-    CacheService,
-    EmailService,
-    SecurityService,
-    {
-      provide: 'Redis_Client',
-      useFactory: (configService: ConfigService) => {
-        const redisConnectionLink = configService.get('REDIS_URL') as string;
-        const redisClient = new Redis(redisConnectionLink);
-        redisClient.on('error', () => {
-          console.log('Failed to connect to redis');
-        });
-        redisClient.on('connect', () => {
-          console.log('Redis connection established');
-        });
-        return redisClient;
-      },
-      /////////////////// in order for Config service to work it needs to be injected
-      inject: [ConfigService],
-    },
-  ],
+  providers: [AuthenticationService, EmailService, SecurityService],
 })
 export class AuthenticationModule {
-  constructor() {}
+  // middlewares in nestjs can be used either at app level or module level
+  // configure(consumer: MiddlewareConsumer) {
+  //   // multiple middleware could be used as well defaultLanguage,defaultLanguage2
+  //   consumer
+  //     .apply(defaultLanguage, AuthenticationMiddleware)
+  //     .forRoutes({ path: 'auth/*', method: RequestMethod.ALL });
+  //   // .exclude()
+  //   // { path: 'auth/login', method: RequestMethod.POST },
+  //   // "auth"
+  //   // AuthenticationController
+  //   // { path: 'auth/signup', method: RequestMethod.POST },
+  //   // { path: 'auth/*', method: RequestMethod.POST },
+  // }
 }

@@ -4,39 +4,40 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EmailEnum, ProviderEnums } from 'src/common/enums';
+import { emailEmitter } from 'src/common/events';
+import { IUser } from 'src/common/interfaces';
 import { UserRepo } from 'src/common/repository';
+import {
+  EmailService,
+  SecurityService,
+  TokenService,
+} from 'src/common/services';
+import { CacheService } from 'src/common/services/redis/caching.service';
 import {
   ConfirmEmail,
   LoginBodyDTO,
   ResendConfirmationEmail,
   SignupBodyDTO,
 } from './dto/authentication.dto';
-import { CacheService } from 'src/common/services/redis/caching.service';
-import { EmailService, SecurityService } from 'src/common/services';
-import { IUser } from 'src/common/interfaces';
-import { EmailEnum, ProviderEnums } from 'src/common/enums';
-import { emailEmitter } from 'src/common/events';
+import { OAuth2Client, TokenPayload } from 'google-auth-library';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthenticationService {
   // to use a specified mongoose schema
+  WEB_CLIENT_ID: string;
   constructor(
+    private readonly JWTService: TokenService,
     private emailService: EmailService,
     private readonly userRepository: UserRepo,
     private readonly redisService: CacheService,
     private readonly securityService: SecurityService,
-  ) {}
-  // async signup(data: SignupBodyDTO) {
-  //   const checkExistingAccount = await this.userRepository.findOne({
-  //     filter: { email: data.email },
-  //   });
-  //   await this.redisService.redisSet({ key: 'SignUp', value: 'Done' });
-  //   if (checkExistingAccount) {
-  //     throw new ConflictException('This account already exists');
-  //   }
-  //   const user = await this.userRepository.createOne({ data });
-  //   return { signupIs: 'Done', user: user.toJSON() };
-  // }
+    private readonly configService: ConfigService,
+  ) {
+    this.WEB_CLIENT_ID = this.configService.get('WEB_CLIENT_ID') as string;
+  }
+
   async signup({
     username,
     email,
@@ -77,7 +78,6 @@ export class AuthenticationService {
   }
   async login({ email, password, FCM }: LoginBodyDTO, issuer: string) {
     // : Promise<{ accessToken: string; refreshToken: string }>
-    console.log(issuer);
     const user = await this.userRepository.findOne({
       filter: {
         email,
@@ -85,6 +85,7 @@ export class AuthenticationService {
         confirmedAt: { $exists: true },
       },
     });
+
     if (!user) {
       throw new NotFoundException(
         'Please make sure to verify your account before login',
@@ -127,6 +128,7 @@ export class AuthenticationService {
         // });
       }
     }
+    return await this.JWTService.createLoginTokens(user, issuer);
     //////////////////////////////////////////// using a secret key based on the user's role (admin | user)
     // return await createLoginTokens(user, issuer);
     // return this.tokenService.createLoginTokens(user, issuer);
@@ -202,5 +204,70 @@ export class AuthenticationService {
       await this.emailService.generateAndSendConfirmationOtp(email);
     });
     return;
+  }
+
+  //////////////// Google login and signup
+  async verifyGoogleAccount(idToken: string): Promise<TokenPayload> {
+    const client = new OAuth2Client();
+
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: this.WEB_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) throw new BadRequestException('No payload found');
+    if (!payload.email_verified) {
+      throw new BadRequestException(
+        'Failed to authenticate this account with gmail',
+      );
+    }
+    return payload;
+  }
+  async loginWithGmail(idToken: string, issuer: string) {
+    const payload = await this.verifyGoogleAccount(idToken);
+    const existingUser = await this.userRepository.findOne({
+      filter: {
+        email: payload.email as string,
+        provider: ProviderEnums.GOOGLE,
+      },
+    });
+    if (!existingUser) {
+      throw new BadRequestException(
+        'Invalid login credentials or not a registered account',
+      );
+    }
+
+    return await this.JWTService.createLoginTokens(existingUser, issuer);
+  }
+  async signupWithGmail(idToken: string, issuer: string) {
+    const payload = await this.verifyGoogleAccount(idToken);
+
+    const existingUser = await this.userRepository.findOne({
+      filter: {
+        email: payload.email as string,
+      },
+    });
+    if (existingUser) {
+      if (existingUser.provider !== ProviderEnums.GOOGLE) {
+        throw new ConflictException('Invalid account provider');
+      }
+      const loginTokens = await this.loginWithGmail(idToken, issuer);
+      return { loginTokens, status: 200 };
+    }
+    const createdUser = await this.userRepository.createOne({
+      data: {
+        firstName: payload.given_name,
+        lastName: payload.family_name,
+        email: payload.email,
+        provider: ProviderEnums.GOOGLE,
+        profileImage: payload.picture,
+        confirmedAt: new Date(),
+      },
+    });
+
+    return {
+      status: 201,
+      loginTokens: await this.JWTService.createLoginTokens(createdUser, issuer),
+    };
   }
 }

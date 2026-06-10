@@ -7,7 +7,7 @@ import {
   Virtual,
 } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { GenderEnum, ProviderEnums, RoleEnum } from 'src/common/enums';
+import { GenderEnums, ProviderEnums, RoleEnums } from 'src/common/enums';
 import { IUser } from 'src/common/interfaces';
 import { SecurityModule } from 'src/common/services/security/security.module';
 import { SecurityService } from 'src/common/services/security/security.service';
@@ -39,7 +39,12 @@ export class User implements IUser {
   username?: string;
   @Prop({ type: String, required: true })
   email!: string;
-  @Prop({ type: String })
+  @Prop({
+    type: String,
+    required: function (this: hydratedUserDocument) {
+      return this.provider === ProviderEnums.SYSTEM;
+    },
+  })
   password?: string;
   @Prop({ type: String })
   phone?: string;
@@ -56,10 +61,10 @@ export class User implements IUser {
   DOB?: Date;
   @Prop({ type: Number, enum: ProviderEnums, default: ProviderEnums.SYSTEM })
   provider!: ProviderEnums;
-  @Prop({ type: Number, enum: RoleEnum, default: RoleEnum.USER })
-  role!: RoleEnum;
-  @Prop({ type: Number, enum: GenderEnum, default: GenderEnum.MALE })
-  gender!: GenderEnum;
+  @Prop({ type: Number, enum: RoleEnums, default: RoleEnums.USER })
+  role!: RoleEnums;
+  @Prop({ type: Number, enum: GenderEnums, default: GenderEnums.MALE })
+  gender!: GenderEnums;
   @Prop({ type: Date })
   confirmedAt?: Date;
   @Prop({ type: Date })

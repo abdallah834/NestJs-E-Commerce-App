@@ -1,79 +1,104 @@
-import type { JwtPayload, SignOptions } from 'jsonwebtoken';
-import jwt from 'jsonwebtoken';
-import { HydratedDocument, Types } from 'mongoose';
-import { randomUUID } from 'node:crypto';
-import { UserRepo } from 'src/common/repository';
-import { CacheService } from '../redis';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AudienceEnum, RoleEnum, TokenType } from 'src/common/enums';
+import { JwtService } from '@nestjs/jwt';
+import type { JwtPayload, SignOptions } from 'jsonwebtoken';
+import { Types } from 'mongoose';
+import { randomUUID } from 'node:crypto';
+import { AudienceEnum, RoleEnums, TokenType } from 'src/common/enums';
+import { UserRepo } from 'src/common/repository';
 import { hydratedUserDocument } from 'src/models';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { CacheService } from '../redis';
 
 type SignaturesType = {
   accessSignature: string | undefined;
   refreshSignature: string | undefined;
 };
-
+@Injectable()
 export class TokenService {
+  private USER_TOKEN_SECRET_KEY: string;
+  private SYSTEM_TOKEN_SECRET_KEY: string;
+  private SYS_REFRESH_TOKEN_SECRET_KEY: string;
+  private USER_REFRESH_TOKEN_SECRET_KEY: string;
+  private ACCESS_TOKEN_EXPIRATION_TIME: number;
+  private REFRESH_TOKEN_EXPIRATION_TIME: number;
   constructor(
+    private readonly JWTService: JwtService,
     private readonly userRepo: UserRepo,
-    private readonly redisRepo: CacheService,
+    private readonly redisService: CacheService,
     private readonly configService: ConfigService,
-  ) {}
-  //////////////////////// Core functionality
-  sign({
-    payload,
-    secretOrPrivateKey = this.configService.get<string>(
+  ) {
+    this.USER_TOKEN_SECRET_KEY = this.configService.get(
       'USER_TOKEN_SECRET_KEY',
-    ),
+    ) as string;
+    this.SYSTEM_TOKEN_SECRET_KEY = this.configService.get(
+      'SYSTEM_TOKEN_SECRET_KEY',
+    ) as string;
+    this.SYS_REFRESH_TOKEN_SECRET_KEY = this.configService.get(
+      'SYS_REFRESH_TOKEN_SECRET_KEY',
+    ) as string;
+    this.USER_REFRESH_TOKEN_SECRET_KEY = this.configService.get(
+      'USER_REFRESH_TOKEN_SECRET_KEY',
+    ) as string;
+    this.ACCESS_TOKEN_EXPIRATION_TIME = this.configService.get(
+      'ACCESS_TOKEN_EXPIRATION_TIME',
+    ) as number;
+    this.REFRESH_TOKEN_EXPIRATION_TIME = this.configService.get(
+      'REFRESH_TOKEN_EXPIRATION_TIME',
+    ) as number;
+  }
+  //////////////////////// Core functionality
+  async sign({
+    payload,
+    secretOrPrivateKey = this.USER_TOKEN_SECRET_KEY,
+
     options,
   }: {
     payload: object;
     secretOrPrivateKey?: string | undefined;
     options?: SignOptions;
-  }): string {
-    return jwt.sign(payload, secretOrPrivateKey as string, options);
+  }): Promise<string> {
+    return await this.JWTService.signAsync(payload, {
+      secret: secretOrPrivateKey,
+      ...options,
+    });
   }
-  verify({
+
+  async verify({
     token,
-    secretOrPrivateKey = this.configService.get<string>(
-      'USER_TOKEN_SECRET_KEY',
-    ),
+    secretOrPrivateKey = this.USER_TOKEN_SECRET_KEY,
   }: {
     token: string;
     secretOrPrivateKey: string | undefined;
-  }): JwtPayload {
-    return jwt.verify(token, secretOrPrivateKey as string) as JwtPayload;
+  }): Promise<JwtPayload> {
+    return await this.JWTService.verifyAsync(token, {
+      secret: secretOrPrivateKey,
+    });
   }
   ///////////////////// JWT helper functions
 
-  getTokenSignature(role: RoleEnum | string | undefined): {
+  getTokenSignature(role: RoleEnums | string | undefined): {
     signatures: SignaturesType;
     audience: AudienceEnum | string;
   } {
     let signatures: SignaturesType;
     let audience = AudienceEnum.USER;
     switch (role) {
-      case RoleEnum.ADMIN:
+      case RoleEnums.ADMIN:
         signatures = {
-          accessSignature: this.configService.get<string>(
-            'SYSTEM_TOKEN_SECRET_KEY',
-          ),
-          refreshSignature: this.configService.get<string>(
-            'SYS_REFRESH_TOKEN_SECRET_KEY',
-          ),
-        };
+          accessSignature: this.SYSTEM_TOKEN_SECRET_KEY,
 
+          refreshSignature: this.SYS_REFRESH_TOKEN_SECRET_KEY,
+        };
         audience = AudienceEnum.SYSTEM;
         break;
       default:
         signatures = {
-          accessSignature: this.configService.get<string>(
-            'USER_TOKEN_SECRET_KEY',
-          ),
-          refreshSignature: this.configService.get<string>(
-            'USER_REFRESH_TOKEN_SECRET_KEY',
-          ),
+          accessSignature: this.USER_TOKEN_SECRET_KEY,
+          refreshSignature: this.USER_REFRESH_TOKEN_SECRET_KEY,
         };
         audience = AudienceEnum.USER;
         break;
@@ -83,7 +108,7 @@ export class TokenService {
 
   getSignatureLevel(
     tokenType = TokenType.ACCESS,
-    signatureLevel: RoleEnum | undefined,
+    signatureLevel: RoleEnums | undefined,
   ): string | undefined {
     const signatures = this.getTokenSignature(signatureLevel).signatures;
     let result: string | undefined;
@@ -113,9 +138,8 @@ export class TokenService {
       this.getTokenSignature(user.role).signatures,
       this.getTokenSignature(user.role).audience,
     ];
-
     const jtId = randomUUID();
-    const accessToken = this.sign({
+    const accessToken = await this.sign({
       payload: { sub: user._id },
       options: {
         issuer,
@@ -123,13 +147,11 @@ export class TokenService {
           TokenType.ACCESS as unknown as string,
           audience as unknown as string,
         ],
-        expiresIn: Number(
-          this.configService.get<string>('ACCESS_TOKEN_EXPIRATION_TIME'),
-        ),
+        expiresIn: Number(this.ACCESS_TOKEN_EXPIRATION_TIME),
         jwtid: jtId,
       },
     });
-    const refreshToken = this.sign({
+    const refreshToken = await this.sign({
       payload: { sub: user._id },
       secretOrPrivateKey: accessAndRefreshSigns.refreshSignature,
       options: {
@@ -138,9 +160,7 @@ export class TokenService {
           TokenType.REFRESH as unknown as string,
           audience as unknown as string,
         ],
-        expiresIn: Number(
-          this.configService.get<string>('REFRESH_TOKEN_EXPIRATION_TIME'),
-        ),
+        expiresIn: Number(this.REFRESH_TOKEN_EXPIRATION_TIME),
         jwtid: jtId,
       },
     });
@@ -157,7 +177,15 @@ export class TokenService {
     userAccount: hydratedUserDocument;
     decodedToken: JwtPayload;
   }> {
-    const decodedToken = jwt.decode(token) as JwtPayload;
+    try {
+      await this.JWTService.verifyAsync(token, {
+        secret: this.USER_TOKEN_SECRET_KEY,
+      });
+    } catch (error) {
+      throw new BadRequestException(`${error}`);
+    }
+
+    const decodedToken = this.JWTService.decode<JwtPayload>(token);
     if (!decodedToken?.aud?.length || decodedToken?.aud?.length <= 1) {
       throw new BadRequestException('Failed to decode token without audience');
     }
@@ -165,15 +193,15 @@ export class TokenService {
     const [decodedTokenType, audienceType] = decodedToken.aud;
 
     ///////////////
-    const numDecodedTokenType = Number(decodedTokenType);
+    const numDecodedTokenType: TokenType = Number(decodedTokenType);
     const numAudienceType = Number(audienceType);
-    if (numDecodedTokenType !== tokenType) {
+    if (tokenType && numDecodedTokenType !== tokenType) {
       throw new BadRequestException('Invalid token type');
     }
     if (
       decodedToken.jti &&
-      (await this.redisRepo.redisGet(
-        this.redisRepo.redisRevokeTokenKey({
+      (await this.redisService.redisGet(
+        this.redisService.redisRevokeTokenKey({
           userId: decodedToken.sub,
           jti: decodedToken.jti,
         }),
@@ -189,7 +217,7 @@ export class TokenService {
     const { accessSignature, refreshSignature } =
       this.getTokenSignature(signatureLevel).signatures;
     // console.log({ accessSignature, refreshSignature });
-    const verifiedData = this.verify({
+    const verifiedData = await this.verify({
       token,
       secretOrPrivateKey:
         tokenType === TokenType.REFRESH ? refreshSignature : accessSignature,
@@ -220,8 +248,8 @@ export class TokenService {
     jti: string | undefined;
     ttl: number | undefined;
   }) {
-    await this.redisRepo.redisSet({
-      key: this.redisRepo.redisRevokeTokenKey({ userId, jti }),
+    await this.redisService.redisSet({
+      key: this.redisService.redisRevokeTokenKey({ userId, jti }),
       value: jti,
       ttl,
     });

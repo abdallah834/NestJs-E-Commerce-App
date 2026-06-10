@@ -32,3 +32,4 @@ import { UserModule } from './modules/user/user.module';
   providers: [AppService],
 })
 export class AppModule {}
+console.log(process.env.DB_URI);

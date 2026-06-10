@@ -57,17 +57,20 @@ export class CacheService {
       );
     }
   }
-  async redisGet(key: string): Promise<string | number | [] | null> {
+  async redisGet(
+    key: string,
+  ): Promise<string | number | [] | null | undefined> {
     try {
+      const opResult = await this.client.get(key);
       try {
-        const opResult = await this.client.get(key);
         if (!opResult) {
           return null;
         }
         return JSON.parse(opResult) as string | number | [];
       } catch (error) {
-        console.log(error);
-        return await this.client.get(key);
+        if (error) {
+          return opResult;
+        }
       }
     } catch (error) {
       console.error(error);

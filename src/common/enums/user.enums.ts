@@ -1,8 +1,8 @@
-export enum GenderEnum {
+export enum GenderEnums {
   MALE,
   FEMALE,
 }
-export enum RoleEnum {
+export enum RoleEnums {
   ADMIN,
   USER,
 }

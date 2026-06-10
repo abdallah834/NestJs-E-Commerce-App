@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   ValidationPipe,
 } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
@@ -12,8 +13,9 @@ import {
   LoginBodyDTO,
   ResendConfirmationEmail,
   SignupBodyDTO,
+  SignupWithGmailDTO,
 } from './dto/authentication.dto';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 // to use any controllers we add the controller to the app.module.ts file
 // assigning an string argument to the controller basically acts as previous path (auth/signup | auth/login)
 // instead of using a certain pipe on individual endpoints we can use on the entire controller or globally on the app
@@ -77,7 +79,10 @@ export class AuthenticationController {
       body,
       `${req.protocol}://${req.host}`,
     );
-    return { message: 'Login success but tokens still need to be implemented' };
+    return {
+      message: 'Login success',
+      loginTokens,
+    };
   }
 
   @Patch('confirmEmail')
@@ -104,5 +109,35 @@ export class AuthenticationController {
         status: 200,
       };
     }
+  }
+
+  @Post('/signup/gmail')
+  async gmailSignup(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: SignupWithGmailDTO,
+  ) {
+    const { status, loginTokens } =
+      await this.authenticationService.signupWithGmail(
+        body.idToken,
+        `${req.protocol}://${req.host}`,
+      );
+    res.status(status);
+    return {
+      message: 'signup success using gmail',
+      data: loginTokens,
+    };
+  }
+  @Post('/login/gmail')
+  async gmailLogin(@Req() req: Request, @Body() body: SignupWithGmailDTO) {
+    const account = await this.authenticationService.loginWithGmail(
+      body.idToken,
+      `${req.protocol}://${req.host}`,
+    );
+    return {
+      message: 'Logged in successfully using gmail',
+      data: account,
+      status: 200,
+    };
   }
 }

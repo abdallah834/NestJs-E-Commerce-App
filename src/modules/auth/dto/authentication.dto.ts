@@ -86,3 +86,10 @@ export class ParamsDTO {
   // @Transform
   flag!: boolean;
 }
+
+export class SignupWithGmailDTO {
+  ////////////////// from frontend
+  @IsString()
+  @IsNotEmpty()
+  idToken!: string;
+}
