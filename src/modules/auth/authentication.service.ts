@@ -22,6 +22,7 @@ import {
 } from './dto/authentication.dto';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { ConfigService } from '@nestjs/config';
+import { LoginResponse } from './entities/authentication.entity';
 
 @Injectable()
 export class AuthenticationService {
@@ -76,7 +77,10 @@ export class AuthenticationService {
 
     return user;
   }
-  async login({ email, password, FCM }: LoginBodyDTO, issuer: string) {
+  async login(
+    { email, password, FCM }: LoginBodyDTO,
+    issuer: string,
+  ): Promise<LoginResponse> {
     // : Promise<{ accessToken: string; refreshToken: string }>
     const user = await this.userRepository.findOne({
       filter: {
@@ -133,7 +137,7 @@ export class AuthenticationService {
     // return await createLoginTokens(user, issuer);
     // return this.tokenService.createLoginTokens(user, issuer);
   }
-  async confirmEmail({ email, otp }: ConfirmEmail) {
+  async confirmEmail({ email, otp }: ConfirmEmail): Promise<void> {
     const existingAcc = await this.userRepository.findOne({
       filter: {
         email,
@@ -177,7 +181,9 @@ export class AuthenticationService {
     return;
   }
 
-  async resendConfirmationEmail({ email }: ResendConfirmationEmail) {
+  async resendConfirmationEmail({
+    email,
+  }: ResendConfirmationEmail): Promise<void> {
     const account = await this.userRepository.findOne({
       filter: {
         email,
@@ -223,7 +229,10 @@ export class AuthenticationService {
     }
     return payload;
   }
-  async loginWithGmail(idToken: string, issuer: string) {
+  async loginWithGmail(
+    idToken: string,
+    issuer: string,
+  ): Promise<LoginResponse> {
     const payload = await this.verifyGoogleAccount(idToken);
     const existingUser = await this.userRepository.findOne({
       filter: {
@@ -239,7 +248,13 @@ export class AuthenticationService {
 
     return await this.JWTService.createLoginTokens(existingUser, issuer);
   }
-  async signupWithGmail(idToken: string, issuer: string) {
+  async signupWithGmail(
+    idToken: string,
+    issuer: string,
+  ): Promise<{
+    loginTokens: LoginResponse;
+    status: number;
+  }> {
     const payload = await this.verifyGoogleAccount(idToken);
 
     const existingUser = await this.userRepository.findOne({

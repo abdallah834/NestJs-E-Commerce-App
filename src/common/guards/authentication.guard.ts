@@ -16,42 +16,50 @@ export class AuthenticationGuard implements CanActivate {
     private readonly reflector: Reflector,
   ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // in order for the reflector to work it needs a specified scope class or handler
-    const tokenType =
-      this.reflector.getAllAndOverride<TokenType>(tokenTypeName, [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? TokenType.ACCESS;
-    let req!: IAuthenticationRequest;
-    let authorization!: string;
-    switch (context.getType()) {
-      case 'http':
-        req = context.switchToHttp().getRequest();
-        authorization = req.headers.authorization as string;
-        break;
-      // case 'ws':
-      //   req = context.switchToWs().getClient();
-      //   authorization = req.headers.authorization as string;
-      //   break;
-      default:
-        break;
-    }
-    const [flag, token] = authorization.split(' ');
-
-    if (!flag || !token) {
-      throw new BadRequestException('Missing authorization parts');
-    }
-    switch (flag) {
-      default: {
-        // "Bearer"
-        req.credentials = await this.tokenService.decodeToken({
-          token,
-          tokenType,
-        });
-
-        break;
+    try {
+      // in order for the reflector to work it needs a specified scope class or handler
+      const tokenType =
+        this.reflector.getAllAndOverride<TokenType>(tokenTypeName, [
+          context.getHandler(),
+          context.getClass(),
+        ]) ?? TokenType.ACCESS;
+      let req!: IAuthenticationRequest;
+      let authorization!: string;
+      switch (context.getType()) {
+        case 'http':
+          req = context.switchToHttp().getRequest();
+          authorization = req.headers.authorization as string;
+          break;
+        // case 'ws':
+        //   req = context.switchToWs().getClient();
+        //   authorization = req.headers.authorization as string;
+        //   break;
+        default:
+          break;
       }
+      if (!authorization) {
+        throw new BadRequestException('No bearer auth provided');
+      }
+      const [flag, token] = authorization.split(' ');
+
+      if (!flag || !token) {
+        throw new BadRequestException('Missing authorization parts');
+      }
+      switch (flag) {
+        default: {
+          // "Bearer"
+          req.credentials = await this.tokenService.decodeToken({
+            token,
+            tokenType,
+          });
+
+          break;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('JWT token expired');
     }
-    return true;
   }
 }

@@ -2,3 +2,12 @@ allowBuilds:
   '@nestjs/core': true
   argon2: false
   unrs-resolver: false
+minimumReleaseAgeExclude:
+  - form-data@4.0.6
+  - js-yaml@4.1.2
+  - '@babel/core@7.29.1'
+  - multer@2.2.0
+  - nodemailer@9.0.1
+overrides:
+  multer: 2.2.0
+  js-yaml: 4.2.0

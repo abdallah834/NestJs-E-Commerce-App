@@ -1,15 +1,19 @@
-import { DeleteOptions, UpdateOptions } from 'mongodb';
 import {
   AnyKeys,
+  ApplyBasicCreateCasting,
   CreateOptions,
+  DeepPartial,
   DeleteResult,
   FlattenMaps,
   HydratedDocument,
   Model,
+  MongooseBaseQueryOptions,
+  MongooseUpdateQueryOptions,
   PopulateOptions,
   ProjectionType,
   QueryFilter,
   QueryOptions,
+  Require_id,
   ReturnsNewDoc,
   Types,
   UpdateQuery,
@@ -18,6 +22,7 @@ import {
 } from 'mongoose';
 import { IPaginate } from '../../common/interfaces';
 import { Injectable } from '@nestjs/common';
+// this import is required so that types get merged instead of completely overwritten
 
 @Injectable()
 export abstract class DataBaseRepo<TRawDoc> {
@@ -41,10 +46,12 @@ export abstract class DataBaseRepo<TRawDoc> {
     data,
     options,
   }: {
-    data: AnyKeys<TRawDoc> | AnyKeys<TRawDoc>[];
+    // AnyKeys<TRawDoc>
+    // AnyKeys<TRawDoc>[]
+    data: Array<DeepPartial<ApplyBasicCreateCasting<Require_id<TRawDoc>>>>;
     options?: CreateOptions | undefined;
   }): Promise<HydratedDocument<TRawDoc>[] | HydratedDocument<TRawDoc>> {
-    return this.model.create(data as any, options);
+    return this.model.create(data, options);
   }
   async insertMany({
     data,
@@ -188,7 +195,7 @@ export abstract class DataBaseRepo<TRawDoc> {
   }: {
     filter: QueryFilter<TRawDoc>;
     update: UpdateQuery<TRawDoc> | UpdateWithAggregationPipeline;
-    options?: UpdateOptions;
+    options?: MongooseUpdateQueryOptions<TRawDoc> | null;
   }): Promise<UpdateResult> {
     if (Array.isArray(update)) {
       return await this.model.updateOne(filter, update, {
@@ -228,17 +235,30 @@ export abstract class DataBaseRepo<TRawDoc> {
   async findByIdAndUpdate({
     _id,
     update,
-    options = { returnDocument: 'after' },
+    options,
   }: {
     _id: Types.ObjectId;
-    update: UpdateQuery<TRawDoc>;
-    options?: (QueryOptions<TRawDoc> & ReturnsNewDoc) | null | undefined;
+    update: UpdateQuery<TRawDoc> | UpdateQuery<TRawDoc>[];
+    options?: QueryOptions<TRawDoc> | null | undefined;
   }): Promise<HydratedDocument<TRawDoc> | null> {
-    return await this.model.findByIdAndUpdate(
-      _id,
-      { ...update, $inc: { __v: 1 } },
-      options,
-    );
+    const resolvedOptions = {
+      returnDocument: 'after' as const,
+      ...options,
+      ...(Array.isArray(update) ? { updatePipeline: true } : {}),
+    };
+
+    return Array.isArray(update)
+      ? await this.model.findByIdAndUpdate(
+          _id,
+          // updatePipeline does't have a direct $inc so we use { $set: { __v: { $add: ['$__v', 1] } } }
+          [...update, { $set: { __v: { $add: ['$__v', 1] } } }],
+          resolvedOptions,
+        )
+      : await this.model.findByIdAndUpdate(
+          _id,
+          { ...update, $inc: { __v: 1 } },
+          resolvedOptions,
+        );
   }
   async updateMany({
     filter,
@@ -247,7 +267,7 @@ export abstract class DataBaseRepo<TRawDoc> {
   }: {
     filter: QueryFilter<TRawDoc>;
     update: UpdateQuery<TRawDoc> | UpdateWithAggregationPipeline;
-    options?: UpdateOptions;
+    options?: MongooseUpdateQueryOptions<TRawDoc> | null;
   }): Promise<UpdateResult> {
     return await this.model.updateMany(
       filter,
@@ -262,7 +282,7 @@ export abstract class DataBaseRepo<TRawDoc> {
     options,
   }: {
     filter: QueryFilter<TRawDoc>;
-    options?: DeleteOptions;
+    options?: MongooseBaseQueryOptions;
   }): Promise<DeleteResult> {
     return await this.model.deleteOne(filter, options);
   }
@@ -289,7 +309,7 @@ export abstract class DataBaseRepo<TRawDoc> {
     options,
   }: {
     filter: QueryFilter<TRawDoc>;
-    options?: DeleteOptions;
+    options?: MongooseBaseQueryOptions<TRawDoc>;
   }): Promise<DeleteResult> {
     return await this.model.deleteMany(filter, options);
   }

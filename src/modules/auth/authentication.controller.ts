@@ -7,6 +7,7 @@ import {
   Res,
   ValidationPipe,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthenticationService } from './authentication.service';
 import {
   ConfirmEmail,
@@ -15,7 +16,8 @@ import {
   SignupBodyDTO,
   SignupWithGmailDTO,
 } from './dto/authentication.dto';
-import type { Request, Response } from 'express';
+import { IUser } from 'src/common/interfaces';
+import { LoginResponse } from './entities/authentication.entity';
 // to use any controllers we add the controller to the app.module.ts file
 // assigning an string argument to the controller basically acts as previous path (auth/signup | auth/login)
 // instead of using a certain pipe on individual endpoints we can use on the entire controller or globally on the app
@@ -45,7 +47,7 @@ export class AuthenticationController {
     // params: { flag: boolean },
     @Body()
     body: SignupBodyDTO,
-  ) {
+  ): Promise<IUser> {
     // implementing custom validation
     // new CustomValidationPipe<SignupDTO>(signup),
     // new DefaultValuePipe(true),
@@ -63,36 +65,34 @@ export class AuthenticationController {
     // console.log({ body, query, params });
     // res.status(500);
 
-    const user = await this.authenticationService.signup(body);
-    return { Message: 'Done', user };
+    return await this.authenticationService.signup(body);
   }
   // to change the status code of a response we use
   // @HttpCode(HttpStatus.OK)
+  // WatchInterceptor is used to measure the raw performance of the api call (code only) & can be used app level
+  // @UseInterceptors(WatchInterceptor)
   @Post('login')
   async login(
     @Req()
     req: Request,
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     body: LoginBodyDTO,
-  ) {
-    const loginTokens = await this.authenticationService.login(
+  ): Promise<LoginResponse> {
+    return await this.authenticationService.login(
       body,
       `${req.protocol}://${req.host}`,
     );
-    return {
-      message: 'Login success',
-      loginTokens,
-    };
   }
 
   @Patch('confirmEmail')
   async confirmEmail(
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     body: ConfirmEmail,
-  ) {
+  ): Promise<{
+    status: number;
+  }> {
     await this.authenticationService.confirmEmail(body);
     return {
-      message: 'Account confirmation completed',
       status: 201,
     };
   }
@@ -101,11 +101,12 @@ export class AuthenticationController {
   async resendConfirmationEmail(
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     body: ResendConfirmationEmail,
-  ) {
+  ): Promise<{
+    status: number;
+  }> {
     {
       await this.authenticationService.resendConfirmationEmail(body);
       return {
-        message: 'OTP resent successfully',
         status: 200,
       };
     }
@@ -116,7 +117,10 @@ export class AuthenticationController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
     @Body() body: SignupWithGmailDTO,
-  ) {
+  ): Promise<{
+    message: 'signup success using gmail';
+    loginTokens: LoginResponse;
+  }> {
     const { status, loginTokens } =
       await this.authenticationService.signupWithGmail(
         body.idToken,
@@ -125,18 +129,22 @@ export class AuthenticationController {
     res.status(status);
     return {
       message: 'signup success using gmail',
-      data: loginTokens,
+      loginTokens,
     };
   }
   @Post('/login/gmail')
-  async gmailLogin(@Req() req: Request, @Body() body: SignupWithGmailDTO) {
-    const account = await this.authenticationService.loginWithGmail(
-      body.idToken,
-      `${req.protocol}://${req.host}`,
-    );
+  async gmailLogin(
+    @Req() req: Request,
+    @Body() body: SignupWithGmailDTO,
+  ): Promise<{
+    account: LoginResponse;
+    status: number;
+  }> {
     return {
-      message: 'Logged in successfully using gmail',
-      data: account,
+      account: await this.authenticationService.loginWithGmail(
+        body.idToken,
+        `${req.protocol}://${req.host}`,
+      ),
       status: 200,
     };
   }

@@ -5,8 +5,6 @@ export const defaultLanguage = (
   res: Response,
   next: NextFunction,
 ) => {
-  // console.log(
-  //   (req.headers['accept-language'] = req.headers['accept-language'] ?? 'en'),
-  // );
+  console.log(req.headers['accept-language']);
   next();
 };

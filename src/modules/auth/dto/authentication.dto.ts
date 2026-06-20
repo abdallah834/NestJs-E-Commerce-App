@@ -9,6 +9,7 @@
 
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -18,6 +19,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { CheckFieldsMatch } from 'src/common/decorators';
+import { LanguageEnum } from 'src/common/enums';
 
 // export type SignupDTO = z.infer<typeof signup>;
 // export type LoginDTO = z.infer<typeof login>;
@@ -41,6 +43,8 @@ export class SignupBodyDTO extends LoginBodyDTO {
   @Length(2, 20, {
     message: 'Username must exceed 2 characters and be less than 20',
   })
+  @IsEnum(LanguageEnum, { message: 'only AR and EN languages are supported' })
+  preferredLanguage?: string;
   @IsNotEmpty({ message: 'Username is required' })
   username!: string;
   //using custom decorator to match between 2 or more fields

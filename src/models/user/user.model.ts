@@ -7,7 +7,12 @@ import {
   Virtual,
 } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { GenderEnums, ProviderEnums, RoleEnums } from 'src/common/enums';
+import {
+  GenderEnums,
+  LanguageEnum,
+  ProviderEnums,
+  RoleEnums,
+} from 'src/common/enums';
 import { IUser } from 'src/common/interfaces';
 import { SecurityModule } from 'src/common/services/security/security.module';
 import { SecurityService } from 'src/common/services/security/security.service';
@@ -52,6 +57,8 @@ export class User implements IUser {
   bio?: string;
   // @Prop({ type: [String] })
   // friends?: Types.ObjectId[] | IUser[];
+  @Prop({ type: String, enum: LanguageEnum, default: LanguageEnum.EN })
+  preferredLanguage?: LanguageEnum;
   @Prop({ type: [String] })
   coverImages?: string[];
 
@@ -68,16 +75,12 @@ export class User implements IUser {
   @Prop({ type: Date })
   confirmedAt?: Date;
   @Prop({ type: Date })
-  createdAt?: Date;
-  @Prop({ type: Date })
-  updatedAt?: Date;
-  @Prop({ type: Date })
   deletedAt?: Date;
   @Prop({ type: Date })
   restoredAt?: Date;
   @Prop({ type: Date })
   changedCredentialsTime?: Date;
-  @Prop({ type: Boolean })
+  @Prop({ type: Boolean, default: false })
   paranoid?: boolean;
 }
 

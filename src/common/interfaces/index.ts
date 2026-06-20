@@ -1,3 +1,7 @@
 export * from './user.interface';
 export * from './pagination.interface';
 export * from './authentication.interface';
+export * from './multer.interface';
+export * from './brand.interface';
+export * from './category.interface';
+export * from './products.interface';

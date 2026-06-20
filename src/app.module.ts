@@ -9,6 +9,7 @@ import { CategoryModule } from './modules/category/category.module';
 import { OrderModule } from './modules/order/order.module';
 import { ProductModule } from './modules/product/product.module';
 import { UserModule } from './modules/user/user.module';
+import { SharedAuthenticationModule } from './common/sharedModules';
 
 @Module({
   // we mainly import modules here along with their imports ex:AuthenticationModule ---> AuthenticationController ---> AuthenticationService
@@ -21,6 +22,7 @@ import { UserModule } from './modules/user/user.module';
     }),
     // linking database using @nestjs/mongoose pkg
     MongooseModule.forRoot(process.env.DB_URI as string),
+    SharedAuthenticationModule,
     AuthenticationModule,
     UserModule,
     ProductModule,
