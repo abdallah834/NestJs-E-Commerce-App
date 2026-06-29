@@ -26,9 +26,9 @@ export class Product implements IProduct {
     maxLength: 300,
   })
   description!: string;
-  @Prop([{ type: Types.ObjectId, ref: 'brands', required: true }])
+  @Prop([{ type: Types.ObjectId, ref: 'Brand', required: true }])
   brandId!: Types.ObjectId[] | IBrand[];
-  @Prop([{ type: Types.ObjectId, ref: 'categories', required: true }])
+  @Prop([{ type: Types.ObjectId, ref: 'Category', required: true }])
   categoryId!: Types.ObjectId[] | ICategory[];
   @Prop({ type: Number, required: true, min: 0 })
   finalPrice!: number;
@@ -50,11 +50,12 @@ export class Product implements IProduct {
   slug?: string;
   @Prop({ type: [String] })
   gallery?: string[];
-  @Prop([{ type: Types.ObjectId, ref: 'users' }])
+  // the reference always needs the name of the declared model in the code not in DB
+  @Prop([{ type: Types.ObjectId, ref: 'User' }])
   notifyUsers?: Types.ObjectId[] | IUser[] | undefined;
-  @Prop({ type: Types.ObjectId, ref: 'users', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy!: Types.ObjectId | IUser;
-  @Prop({ type: Types.ObjectId, ref: 'users' })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   updatedBy?: Types.ObjectId | IUser | undefined;
   @Prop({ type: Date })
   deletedAt?: Date;

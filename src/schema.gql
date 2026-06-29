@@ -1,0 +1,96 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type SingleUserResponse {
+  _id: ID!
+  email: String!
+  username: String!
+  firstName: String!
+  lastName: String!
+  password: String
+  bio: String
+  phone: String
+  coverImages: [String!]
+  profileImage: String
+  gender: GenderEnums!
+  provider: ProviderEnums!
+  role: RoleEnums!
+  preferredLanguage: LanguageEnum!
+  createdAt: String!
+  DOB: String
+  changedCredentialsTime: String
+  updatedAt: String
+  deletedAt: String
+  restoredAt: String
+  confirmedAt: String
+}
+
+enum GenderEnums {
+  MALE
+  FEMALE
+}
+
+enum ProviderEnums {
+  SYSTEM
+  GOOGLE
+}
+
+enum RoleEnums {
+  ADMIN
+  USER
+}
+
+enum LanguageEnum {
+  EN
+  AR
+}
+
+type SayHiResponse {
+  name: String!
+  age: Int
+}
+
+type SingleProductResponse {
+  _id: ID!
+  brandId: [ID!]!
+  categoryId: [ID!]!
+  createdBy: SingleUserResponse!
+  updatedBy: ID
+  notifyUsers: [ID!]
+  originalPrice: Float!
+  discountPercentage: Float!
+  salePrice: Float!
+  finalPrice: Float!
+  rating: Float
+  stock: Int!
+  description: String!
+  name: String!
+  slug: String!
+  referenceId: String!
+  gallery: [String!]
+  image: String!
+  createdAt: String!
+  updatedAt: String
+  deletedAt: String
+  restoredAt: String
+}
+
+type PaginateProductsResponse {
+  currentPage: Int
+  size: Int
+  pages: Int
+  docs: [SingleProductResponse!]!
+}
+
+type Query {
+  allProducts(page: Int, size: Int, search: String): PaginateProductsResponse!
+
+  """GQL introduction api"""
+  sayHi(name: String!, age: Int): SayHiResponse!
+}
+
+type Mutation {
+  """GQL introduction api"""
+  lol: SayHiResponse!
+}

@@ -57,6 +57,9 @@ export class CacheService {
       );
     }
   }
+  getCacheKey(value: string, userId?: string) {
+    return userId ? `Request::${value}::${userId}` : `Request::${value}`;
+  }
   async redisGet(
     key: string,
   ): Promise<string | number | [] | null | undefined> {

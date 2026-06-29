@@ -5,9 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { GqlExecutionContext } from '@nestjs/graphql';
 import { roleName } from 'src/common/decorators';
 import { RoleEnums } from 'src/common/enums';
-import { IAuthenticationRequest } from 'src/common/interfaces';
+import { CtxType, IAuthenticationRequest } from 'src/common/interfaces';
 import { hydratedUserDocument } from 'src/models';
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
@@ -21,10 +22,15 @@ export class AuthorizationGuard implements CanActivate {
       ]) ?? RoleEnums.USER;
     let user!: hydratedUserDocument;
 
-    switch (context.getType()) {
+    switch (context.getType<CtxType>()) {
       case 'http':
         user = context.switchToHttp().getRequest<IAuthenticationRequest>()
           .credentials.userAccount;
+        break;
+      case 'graphql':
+        user = GqlExecutionContext.create(context).getContext<{
+          req: IAuthenticationRequest;
+        }>().req.credentials.userAccount;
         break;
 
       default:

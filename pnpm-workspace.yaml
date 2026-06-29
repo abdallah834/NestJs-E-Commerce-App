@@ -1,4 +1,5 @@
 allowBuilds:
+  '@apollo/protobufjs': true
   '@nestjs/core': true
   argon2: false
   unrs-resolver: false
@@ -8,6 +9,8 @@ minimumReleaseAgeExclude:
   - '@babel/core@7.29.1'
   - multer@2.2.0
   - nodemailer@9.0.1
+  - ws@8.21.0
 overrides:
   multer: 2.2.0
   js-yaml: 4.2.0
+  ws: 8.21.0

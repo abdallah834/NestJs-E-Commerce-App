@@ -28,11 +28,11 @@ export class Category implements ICategory {
   image!: string;
   @Prop({ type: [String] })
   slider?: string[];
-  @Prop({ type: [String], required: true, ref: 'brands' })
+  @Prop({ type: [String], required: true, ref: 'Brand' })
   brandIds!: Types.ObjectId[] | IBrand[];
-  @Prop({ type: Types.ObjectId, ref: 'users', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy!: Types.ObjectId | IUser;
-  @Prop({ type: Types.ObjectId, ref: 'users' })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
   updatedBy?: Types.ObjectId | IUser | undefined;
   @Prop({ type: Date })
   deletedAt?: Date;

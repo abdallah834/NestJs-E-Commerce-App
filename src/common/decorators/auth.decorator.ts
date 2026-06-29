@@ -6,10 +6,10 @@ import { AuthorizationGuard } from '../guards/authorization.guard';
 import { RoleEnums, TokenType } from '../enums';
 
 export const Auth = ({
-  roles,
+  roles = [RoleEnums.USER],
   tokenType,
 }: {
-  roles: RoleEnums[];
+  roles?: RoleEnums[];
   tokenType?: TokenType;
 }) => {
   return applyDecorators(

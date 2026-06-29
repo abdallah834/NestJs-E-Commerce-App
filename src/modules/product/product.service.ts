@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'crypto';
 import { mongo } from 'mongoose';
 import { slugify } from 'node_modules/zod/v4/core/util.cjs';
-import { IMulterFile, IProduct } from 'src/common/interfaces';
+import { IMulterFile, IPaginate, IProduct } from 'src/common/interfaces';
 import { BrandRepo, CategoryRepo, ProductRepo } from 'src/common/repository';
 import { S3Service } from 'src/common/services';
 import {
@@ -20,6 +20,8 @@ import {
   UpdateProductDto,
   UpdateProductParamsDto,
 } from './dto/update-product.dto';
+
+import { PaginationDto } from 'src/common/dto';
 
 @Injectable()
 export class ProductService {
@@ -137,8 +139,29 @@ export class ProductService {
       }
     }
   }
-  findAll() {
-    return `This action returns all product`;
+  async findAll({
+    size,
+    page,
+    search,
+  }: PaginationDto): Promise<IPaginate<IProduct>> {
+    const result = await this.productRepo.paginate({
+      page,
+      limit: size,
+      filter: {
+        ...(search
+          ? {
+              $or: [
+                { name: { $regex: search, options: 'i' } },
+                { slug: { $regex: search, options: 'i' } },
+                { description: { $regex: search, options: 'i' } },
+              ],
+            }
+          : {}),
+      },
+      options: { populate: [{ path: 'createdBy' }] },
+    });
+
+    return result;
   }
 
   findOne(id: number) {

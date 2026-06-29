@@ -5,9 +5,11 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { GqlExecutionContext } from '@nestjs/graphql';
+import { TokenExpiredError } from 'jsonwebtoken';
 import { tokenTypeName } from 'src/common/decorators';
 import { TokenType } from 'src/common/enums';
-import { IAuthenticationRequest } from 'src/common/interfaces';
+import { CtxType, IAuthenticationRequest } from 'src/common/interfaces';
 import { TokenService } from 'src/common/services';
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
@@ -25,10 +27,17 @@ export class AuthenticationGuard implements CanActivate {
         ]) ?? TokenType.ACCESS;
       let req!: IAuthenticationRequest;
       let authorization!: string;
-      switch (context.getType()) {
+      switch (context.getType<CtxType>()) {
         case 'http':
           req = context.switchToHttp().getRequest();
           authorization = req.headers.authorization as string;
+          break;
+        case 'graphql':
+          // to get the context for GQL requests
+          req = GqlExecutionContext.create(context).getContext<{
+            req: IAuthenticationRequest;
+          }>().req;
+          authorization = req.headers['authorization'] as string;
           break;
         // case 'ws':
         //   req = context.switchToWs().getClient();
@@ -37,8 +46,10 @@ export class AuthenticationGuard implements CanActivate {
         default:
           break;
       }
-      if (!authorization) {
+      if (!authorization && context.getType<CtxType>() === 'http') {
         throw new BadRequestException('No bearer auth provided');
+      } else if (!authorization && context.getType<CtxType>() === 'graphql') {
+        return false;
       }
       const [flag, token] = authorization.split(' ');
 
@@ -58,8 +69,10 @@ export class AuthenticationGuard implements CanActivate {
       }
       return true;
     } catch (error) {
-      console.log(error);
-      throw new BadRequestException('JWT token expired');
+      if (error instanceof TokenExpiredError) {
+        throw new BadRequestException('JWT token expired');
+      }
+      throw error;
     }
   }
 }

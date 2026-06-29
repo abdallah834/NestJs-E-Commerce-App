@@ -130,12 +130,12 @@ export abstract class DataBaseRepo<TRawDoc> {
     filter?: QueryFilter<TRawDoc> | undefined;
     projection?: ProjectionType<TRawDoc> | null | undefined;
     options?: QueryOptions<TRawDoc>;
-    page?: string | undefined;
-    limit?: string | undefined;
+    page?: number | string | undefined;
+    limit?: number | string | undefined;
   }): Promise<IPaginate<TRawDoc>> {
     let count = -1;
-    const pageInt = parseInt(page);
-    const sizeInt = parseInt(limit);
+    const pageInt = parseInt(page as string);
+    const sizeInt = parseInt(limit as string);
     if (pageInt > 0) {
       options.skip = (pageInt - 1) * sizeInt;
       options.limit = sizeInt;

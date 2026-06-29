@@ -1,5 +1,7 @@
+import { ArgsType, Field, Int } from '@nestjs/graphql';
 import { Transform } from 'class-transformer';
 import {
+  IsInt,
   IsMongoId,
   IsNotEmpty,
   IsNumber,
@@ -59,4 +61,18 @@ export class CreateProductDto implements Partial<IProduct> {
   @IsNotEmpty()
   @IsMongoId()
   categoryId!: string | Types.ObjectId;
+}
+// ArgsType returns the args as an object without having to destruct
+@ArgsType()
+// InputType  returns the args as an object but you have to destruct
+// @InputType()
+export class SayHiInputDto {
+  @Field(() => String, { nullable: false })
+  @IsNotEmpty()
+  @IsString()
+  name!: string;
+  @Field(() => Int, { nullable: true })
+  @IsInt()
+  @IsOptional()
+  age?: number;
 }

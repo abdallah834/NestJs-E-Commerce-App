@@ -8,13 +8,14 @@ import {
   ParseFilePipe,
   Patch,
   Post,
+  Query,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Auth, User } from 'src/common/decorators';
 import { RoleEnums } from 'src/common/enums';
-import { IMulterFile } from 'src/common/interfaces';
+import { IMulterFile, IPaginate, IProduct } from 'src/common/interfaces';
 import { cloudMulter, fileFieldValidation } from 'src/common/utils/multer';
 import type { hydratedUserDocument } from 'src/models';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -23,6 +24,8 @@ import {
   UpdateProductParamsDto,
 } from './dto/update-product.dto';
 import { ProductService } from './product.service';
+import { PaginationDto } from 'src/common/dto';
+import { CustomCacheInterceptor } from 'src/common/interceptors/cache.interceptor';
 
 @Controller('product')
 export class ProductController {
@@ -88,10 +91,12 @@ export class ProductController {
       files,
     );
   }
+  ///////////////////////////////// Getting all products
 
+  @UseInterceptors(CustomCacheInterceptor)
   @Get()
-  findAll() {
-    return this.productService.findAll();
+  async findAll(@Query() query: PaginationDto): Promise<IPaginate<IProduct>> {
+    return await this.productService.findAll(query);
   }
 
   @Get(':id')
