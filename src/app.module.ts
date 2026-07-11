@@ -15,6 +15,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
+import { CouponModule } from './modules/coupon/coupon.module';
 
 @Module({
   // we mainly import modules here along with their imports ex:AuthenticationModule ---> AuthenticationController ---> AuthenticationService
@@ -40,6 +41,8 @@ import { join } from 'path';
     UserModule,
     ProductModule,
     CategoryModule,
+    CouponModule,
+    OrderModule,
     CartModule,
     OrderModule,
     BrandModule,

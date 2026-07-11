@@ -6,27 +6,17 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 
-interface SignupFields {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  username: string;
-  provider: number;
-}
-interface SignupFieldsValidation extends ValidationArguments {
-  object: SignupFields;
-}
 // Custom validation classes
 @ValidatorConstraint({ name: 'passwordMatching', async: false })
 export class MatchBetweenFields<
   T = any,
 > implements ValidatorConstraintInterface {
-  validate(value: T, args: SignupFieldsValidation) {
+  validate(value: T, args: ValidationArguments) {
     // console.log(args.object[args.constraints[1] as string]); ////to access the first constraint in this case "password" field
     return args.object[args.constraints[0] as string] == value; // for async validations you must return a Promise<boolean> here
   }
 
-  defaultMessage(args: SignupFieldsValidation) {
+  defaultMessage(args: ValidationArguments) {
     // here you can provide default error message if validation failed
     return `Failed to match ${args.property} with ${args.constraints[0]}`;
   }
