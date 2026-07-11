@@ -186,6 +186,7 @@ export class TokenService {
     }
 
     const decodedToken = this.JWTService.decode<JwtPayload>(token);
+
     if (!decodedToken?.aud?.length || decodedToken?.aud?.length <= 1) {
       throw new BadRequestException('Failed to decode token without audience');
     }

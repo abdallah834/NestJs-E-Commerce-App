@@ -1,5 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { CtxType, IAuthenticationRequest } from '../interfaces';
+import {
+  CtxType,
+  IAuthenticationRequest,
+  IAuthenticationSocket,
+} from '../interfaces';
 import { hydratedUserDocument } from 'src/models';
 import { GqlExecutionContext } from '@nestjs/graphql';
 
@@ -18,6 +22,10 @@ export const User = createParamDecorator(
         user = GqlExecutionContext.create(context).getContext<{
           req: IAuthenticationRequest;
         }>().req.credentials.userAccount;
+        break;
+      case 'ws':
+        user = context.switchToWs().getClient<IAuthenticationSocket>()
+          .credentials.userAccount;
         break;
       default:
         break;

@@ -24,6 +24,7 @@ import {
   orderCheckoutTokenDto,
 } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { RealTimeGateWay } from '../realtime/realtime.gateway';
 
 @Injectable()
 export class OrderService {
@@ -34,6 +35,7 @@ export class OrderService {
     private readonly couponRepo: CouponRepo,
     private readonly cartService: CartService,
     private readonly paymentService: PaymentService,
+    private readonly realtimeGateway: RealTimeGateWay,
   ) {}
   async create(
     {
@@ -152,6 +154,7 @@ export class OrderService {
       await orderCoupon.save();
     }
     await this.cartService.remove(user);
+    this.realtimeGateway.changeStock(productsStock);
     return placedOrder.toJSON();
   }
   async confirmOrder(
@@ -291,7 +294,7 @@ export class OrderService {
       order.refundedAt = new Date(Date.now());
 
       await order.save();
-      // Restore stock for every product in the order
+      //////////////// restore stock for every product in the order
       for (const orderedProduct of order.products) {
         await this.productRepo.findOneAndUpdate({
           filter: { _id: orderedProduct.productId },
@@ -299,7 +302,7 @@ export class OrderService {
         });
       }
 
-      // Regenerate a cart for the user with the same products
+      //////////////// regenerate a cart for the user with the same products
       await this.cartRepo.createOne({
         data: {
           createdBy: user._id,
@@ -310,7 +313,7 @@ export class OrderService {
         },
       });
 
-      // Remove the user's coupon usage record, if a coupon was applied
+      //////////////// remove the user's coupon usage record, if a coupon was applied
       if (order.couponId) {
         await this.couponRepo.findOneAndUpdate({
           filter: { _id: order.couponId },

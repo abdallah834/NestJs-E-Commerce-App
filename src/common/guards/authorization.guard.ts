@@ -8,7 +8,11 @@ import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { roleName } from 'src/common/decorators';
 import { RoleEnums } from 'src/common/enums';
-import { CtxType, IAuthenticationRequest } from 'src/common/interfaces';
+import {
+  CtxType,
+  IAuthenticationRequest,
+  IAuthenticationSocket,
+} from 'src/common/interfaces';
 import { hydratedUserDocument } from 'src/models';
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
@@ -32,13 +36,19 @@ export class AuthorizationGuard implements CanActivate {
           req: IAuthenticationRequest;
         }>().req.credentials.userAccount;
         break;
-
+      case 'ws':
+        user = context.switchToWs().getClient<IAuthenticationSocket>()
+          .credentials.userAccount;
+        break;
       default:
         break;
+    }
+    if (!user) {
+      return false;
     }
     if (!roles.includes(user.role)) {
       throw new UnauthorizedException("You don't have access to this resource");
     }
-    return true;
+    return roles.includes(user.role);
   }
 }

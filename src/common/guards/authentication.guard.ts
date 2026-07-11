@@ -9,8 +9,13 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { tokenTypeName } from 'src/common/decorators';
 import { TokenType } from 'src/common/enums';
-import { CtxType, IAuthenticationRequest } from 'src/common/interfaces';
+import {
+  CtxType,
+  IAuthenticationRequest,
+  IAuthenticationSocket,
+} from 'src/common/interfaces';
 import { TokenService } from 'src/common/services';
+import { getAuthenticatedSocket } from '../utils/socketIo';
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
   constructor(
@@ -25,11 +30,11 @@ export class AuthenticationGuard implements CanActivate {
           context.getHandler(),
           context.getClass(),
         ]) ?? TokenType.ACCESS;
-      let req!: IAuthenticationRequest;
+      let req!: IAuthenticationRequest | IAuthenticationSocket;
       let authorization!: string;
       switch (context.getType<CtxType>()) {
         case 'http':
-          req = context.switchToHttp().getRequest();
+          req = context.switchToHttp().getRequest<IAuthenticationRequest>();
           authorization = req.headers.authorization as string;
           break;
         case 'graphql':
@@ -39,16 +44,19 @@ export class AuthenticationGuard implements CanActivate {
           }>().req;
           authorization = req.headers['authorization'] as string;
           break;
-        // case 'ws':
-        //   req = context.switchToWs().getClient();
-        //   authorization = req.headers.authorization as string;
-        //   break;
+        case 'ws':
+          req = context.switchToWs().getClient<IAuthenticationSocket>();
+          authorization = `Bearer ${getAuthenticatedSocket(req)}`;
+          break;
         default:
           break;
       }
       if (!authorization && context.getType<CtxType>() === 'http') {
         throw new BadRequestException('No bearer auth provided');
-      } else if (!authorization && context.getType<CtxType>() === 'graphql') {
+      } else if (
+        (!authorization && context.getType<CtxType>() === 'graphql') ||
+        (!authorization && context.getType<CtxType>() === 'ws')
+      ) {
         return false;
       }
       const [flag, token] = authorization.split(' ');
@@ -71,8 +79,13 @@ export class AuthenticationGuard implements CanActivate {
     } catch (error) {
       if (error instanceof TokenExpiredError) {
         throw new BadRequestException('JWT token expired');
+      } else if (
+        context.getType<CtxType>() === 'graphql' ||
+        context.getType<CtxType>() === 'ws'
+      ) {
+        return false;
       }
-      throw error;
+      return false;
     }
   }
 }

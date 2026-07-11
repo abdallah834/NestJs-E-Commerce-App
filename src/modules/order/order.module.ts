@@ -6,6 +6,7 @@ import { CartModel, CouponModel, OrderModel, ProductModel } from 'src/models';
 import { CartService } from '../cart/cart.service';
 import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
+import { RealTimeGateWay } from '../realtime/realtime.gateway';
 
 @Module({
   imports: [OrderModel, ProductModel, CartModel, CouponModel],
@@ -18,6 +19,7 @@ import { OrderService } from './order.service';
     CouponRepo,
     CartService,
     PaymentService,
+    RealTimeGateWay,
   ],
 })
 export class OrderModule {}
