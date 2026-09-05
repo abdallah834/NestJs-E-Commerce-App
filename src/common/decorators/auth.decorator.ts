@@ -1,8 +1,8 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { Token } from './token.decorator';
 import { Role } from './role.decorator';
-import { AuthenticationGuard } from '../guards/authentication.guard';
-import { AuthorizationGuard } from '../guards/authorization.guard';
+import { AuthenticationGuard } from '../guards/auth/authentication.guard';
+import { AuthorizationGuard } from '../guards/auth/authorization.guard';
 import { RoleEnums, TokenType } from '../enums';
 
 export const Auth = ({

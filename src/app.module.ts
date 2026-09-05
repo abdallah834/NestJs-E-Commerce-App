@@ -17,11 +17,14 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { CouponModule } from './modules/coupon/coupon.module';
 import { RealTimeModule } from './modules/realtime/realtime.module';
-
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 @Module({
   // we mainly import modules here along with their imports ex:AuthenticationModule ---> AuthenticationController ---> AuthenticationService
 
   imports: [
+    // Rate-limiting app level 100 req per min
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ////////////////////// caching GET requests
     CacheModule.register({ isGlobal: true, ttl: 10000 }),
     ConfigModule.forRoot({
@@ -50,7 +53,7 @@ import { RealTimeModule } from './modules/realtime/realtime.module';
     RealTimeModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
 console.log(process.env.DB_URI);

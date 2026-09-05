@@ -21,6 +21,7 @@ import {
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderService } from './order.service';
 import type { Request } from 'express';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 
 @Controller('order')
 export class OrderController {
@@ -42,6 +43,8 @@ export class OrderController {
     return await this.orderService.confirmOrder(confirmOrderParams, user);
   }
   @Auth({ roles: [RoleEnums.ADMIN, RoleEnums.USER] })
+  //5 checkout attempts per user
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('/:orderId/checkout')
   async orderCheckout(
     @Param() confirmOrderParams: ConfirmOrderParamsDto,
@@ -64,6 +67,7 @@ export class OrderController {
   }
 
   @Post('/webhook')
+  @SkipThrottle()
   async stripeWebhook(@Req() req: Request) {
     return await this.orderService.initStripeWebhook(req);
   }

@@ -15,7 +15,7 @@ import {
   IAuthenticationSocket,
 } from 'src/common/interfaces';
 import { TokenService } from 'src/common/services';
-import { getAuthenticatedSocket } from '../utils/socketIo';
+import { getAuthenticatedSocket } from '../../utils/socketIo';
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
   constructor(

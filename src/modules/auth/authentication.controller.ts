@@ -18,10 +18,12 @@ import {
 } from './dto/authentication.dto';
 import { IUser } from 'src/common/interfaces';
 import { LoginResponse } from './entities/authentication.entity';
+import { Throttle } from '@nestjs/throttler';
 // to use any controllers we add the controller to the app.module.ts file
 // assigning an string argument to the controller basically acts as previous path (auth/signup | auth/login)
 // instead of using a certain pipe on individual endpoints we can use on the entire controller or globally on the app
 // @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+
 @Controller('auth')
 export class AuthenticationController {
   constructor(private readonly authenticationService: AuthenticationService) {}
@@ -31,6 +33,7 @@ export class AuthenticationController {
   // to specify an optional parameter such as Id we contain inside curly brackets {/:id}
   // to use pipes on multiple arguments we use (UsePipes)
   // @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('signup')
   // endpoint decorators
   // {
@@ -71,6 +74,7 @@ export class AuthenticationController {
   // @HttpCode(HttpStatus.OK)
   // WatchInterceptor is used to measure the raw performance of the api call (code only) & can be used app level
   // @UseInterceptors(WatchInterceptor)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async login(
     @Req()
@@ -83,7 +87,7 @@ export class AuthenticationController {
       `${req.protocol}://${req.host}`,
     );
   }
-
+  @Throttle({ default: { limit: 2, ttl: 60000 } })
   @Patch('confirmEmail')
   async confirmEmail(
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -96,7 +100,7 @@ export class AuthenticationController {
       status: 201,
     };
   }
-
+  @Throttle({ default: { limit: 1, ttl: 60000 } })
   @Patch('resendConfirmationEmail')
   async resendConfirmationEmail(
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))

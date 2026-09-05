@@ -26,6 +26,7 @@ import {
 import { ProductService } from './product.service';
 import { PaginationDto } from 'src/common/dto';
 import { CustomCacheInterceptor } from 'src/common/interceptors/cache.interceptor';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('product')
 export class ProductController {
@@ -94,6 +95,7 @@ export class ProductController {
   ///////////////////////////////// Getting all products
 
   @UseInterceptors(CustomCacheInterceptor)
+  @Throttle({ default: { limit: 300, ttl: 60000 } })
   @Get()
   async findAll(@Query() query: PaginationDto): Promise<IPaginate<IProduct>> {
     return await this.productService.findAll(query);
