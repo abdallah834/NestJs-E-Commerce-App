@@ -1,6 +1,7 @@
 import { MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { IBrand, ICategory, IUser } from 'src/common/interfaces';
+// import { IBrand, ICategory, IUser } from 'src';
 
 export type hydratedCategoryDocument = HydratedDocument<ICategory>;
 @Schema({

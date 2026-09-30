@@ -56,4 +56,3 @@ import { APP_GUARD } from '@nestjs/core';
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
-console.log(process.env.DB_URI);

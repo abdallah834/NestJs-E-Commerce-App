@@ -27,7 +27,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
-  await app.listen(process.env.PORT as string);
+  await app.listen((process.env.PORT as string) || 3000, '0.0.0.0');
   console.log(`Server is running on port: ${process.env.PORT}`);
 
   if (process.env.NODE_ENV !== 'production') {
