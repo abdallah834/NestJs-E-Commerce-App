@@ -15,6 +15,8 @@ export interface IOrder {
   intentId?: string;
   address: string;
   phoneNumber: string;
+  idempotencyKey?: string;
+  requestHash?: string;
   note?: string;
   total: number;
   discountPercentage?: number;

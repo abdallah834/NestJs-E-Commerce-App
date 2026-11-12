@@ -25,9 +25,15 @@ export type hydratedOrderDocument = HydratedDocument<IOrder>;
   toObject: { virtuals: true },
   strict: true,
   strictQuery: true,
+  optimisticConcurrency: true,
 })
 //////////////////NestJs schema
 export class Order implements IOrder {
+  @Prop({ type: String })
+  idempotencyKey?: string;
+  // checking same key but different payload
+  @Prop({ type: String })
+  requestHash?: string;
   @Prop({ type: String, required: true, minLength: 10, maxLength: 250 })
   address!: string;
   @Prop({ type: String, required: true, minLength: 11, maxLength: 11 })
@@ -149,3 +155,14 @@ export const OrderModel = MongooseModule.forFeatureAsync([
     },
   },
 ]);
+// setting up a unique index for idempotency keys
+orderMongoDBSchema.index(
+  { createdBy: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    // using partialFilterExpression instead of sparse to avoid conflicts for older orders
+    partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+  },
+);
+// fixing orderId collision risk
+orderMongoDBSchema.index({ orderId: 1 }, { unique: true });

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { ClientSession, Types } from 'mongoose';
 import { ICart } from 'src/common/interfaces';
 import { CartRepo, ProductRepo } from 'src/common/repository';
 import { hydratedUserDocument } from 'src/models';
@@ -111,9 +111,13 @@ export class CartService {
     return userCart.toJSON();
   }
 
-  async remove(user: hydratedUserDocument): Promise<ICart> {
+  async remove(
+    user: hydratedUserDocument,
+    { session }: { session: ClientSession },
+  ): Promise<ICart> {
     const userCart = await this.cartRepo.findOneAndDelete({
       filter: { createdBy: user._id },
+      options: { session },
     });
     if (!userCart) {
       throw new NotFoundException("Couldn't find user's cart ");

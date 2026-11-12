@@ -10,7 +10,7 @@ import {
 } from 'class-validator';
 import { CurrencyTypeEnum, PaymentTypeEnum } from 'src/common/enums';
 import { IOrder } from 'src/common/interfaces';
-
+export const idempotencyRegEx = /^[A-Za-z0-9_-]{8,64}$/;
 export class CreateOrderDto implements Partial<IOrder> {
   @IsString()
   @MinLength(10)
@@ -47,5 +47,12 @@ export class orderCheckoutTokenDto {
   @IsNotEmpty()
   token!: string;
 }
-
+export class IdempotencyDto {
+  @IsString({ message: 'Idempotency key header missing' })
+  @IsNotEmpty()
+  @Matches(idempotencyRegEx, {
+    message: 'Invalid idempotency key format',
+  })
+  idempotencyKey!: string;
+}
 export class CancelOrderParamsDto extends ConfirmOrderParamsDto {}

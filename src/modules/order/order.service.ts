@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Request } from 'express';
-import { Types } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 import { OrderStatusEnum, PaymentTypeEnum } from 'src/common/enums';
 import { CouponTypeEnum } from 'src/common/enums/coupon.enum';
 import { IOrder, IOrderedProducts } from 'src/common/interfaces';
@@ -14,6 +16,7 @@ import { CouponRepo } from 'src/common/repository/coupon.repo';
 import { PaymentService } from 'src/common/services';
 import {
   hydratedCouponDocument,
+  hydratedOrderDocument,
   hydratedProductDocument,
   hydratedUserDocument,
 } from 'src/models';
@@ -25,6 +28,8 @@ import {
 } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { RealTimeGateWay } from '../realtime/realtime.gateway';
+import { InjectConnection } from 'node_modules/@nestjs/mongoose/dist';
+import { isDuplicateKeyError } from 'src/common/utils/mongoose';
 
 @Injectable()
 export class OrderService {
@@ -36,126 +41,182 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly paymentService: PaymentService,
     private readonly realtimeGateway: RealTimeGateWay,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
+  private hashRequest(dto: CreateOrderDto): string {
+    const { address, currency, phoneNumber, couponName, note, paymentType } =
+      dto;
+    return createHash('sha256')
+      .update(
+        JSON.stringify({
+          address,
+          currency,
+          phoneNumber,
+          couponName,
+          note,
+          paymentType,
+        }),
+      )
+      .digest('hex');
+  }
+  private async findReplay(
+    userId: Types.ObjectId,
+    idempotencyKey: string,
+    requestHash: string,
+  ): Promise<IOrder | null> {
+    const existing = await this.orderRepo.findOne({
+      filter: { createdBy: userId, idempotencyKey },
+    });
+    if (!existing) return null;
+
+    if (existing.requestHash !== requestHash) {
+      throw new UnprocessableEntityException(
+        'This Idempotency-Key was already used with a different request',
+      );
+    }
+    return existing.toJSON();
+  }
   async create(
-    {
-      address,
-      currency,
-      phoneNumber,
-      couponName,
-      note,
-      paymentType,
-    }: CreateOrderDto,
+    dto: CreateOrderDto,
     user: hydratedUserDocument,
+    idempotencyKey: string,
   ): Promise<IOrder> {
+    const requestHash = this.hashRequest(dto);
+    // must come before the cart check .
+    const replay = await this.findReplay(user._id, idempotencyKey, requestHash);
+    // Returning the original result.
+    if (replay) return replay;
+
     const userCart = await this.cartRepo.findOne({
       filter: { createdBy: user._id },
     });
-    if (!userCart || !userCart.products.length) {
+    if (!userCart?.products.length) {
       throw new NotFoundException('Cart is either empty or not found');
     }
-    let orderCoupon!: hydratedCouponDocument;
-    if (couponName) {
-      orderCoupon = (await this.couponRepo.findOne({
-        filter: {
-          couponName,
-          startDate: { $lt: new Date(Date.now()) },
-          endDate: { $gt: new Date(Date.now()) },
+
+    const session = await this.connection.startSession();
+    try {
+      let placedOrder!: hydratedOrderDocument;
+      let productsStock: { productId: Types.ObjectId; stock: number }[] = [];
+
+      await session.withTransaction(
+        async () => {
+          productsStock = [];
+          const orderedProducts: IOrderedProducts[] = [];
+          let totalOrderPrice = 0;
+
+          // 1. Atomic check + decrement in one operation per product
+          for (const item of userCart.products) {
+            const product = await this.productRepo.findOneAndUpdate({
+              filter: { _id: item.productId, stock: { $gte: item.quantity } },
+              update: { $inc: { stock: -item.quantity } },
+              options: { new: true, session },
+            });
+            if (!product) {
+              throw new ConflictException(
+                `Product ${item.productId as string} is out of stock`,
+              );
+            }
+
+            const total = item.quantity * product.finalPrice;
+            orderedProducts.push({
+              productId: item.productId as Types.ObjectId,
+              quantity: item.quantity,
+              unitAmount: product.finalPrice,
+              total,
+            });
+            totalOrderPrice += total;
+            productsStock.push({
+              productId: product._id,
+              stock: product.stock,
+            });
+          }
+
+          // 2. Coupon: atomic validation + usage record
+          let orderCoupon: hydratedCouponDocument | null = null;
+          if (dto.couponName) {
+            const now = new Date();
+            orderCoupon = await this.couponRepo.findOneAndUpdate({
+              filter: {
+                couponName: dto.couponName,
+                startDate: { $lt: now },
+                endDate: { $gt: now },
+                $expr: {
+                  $lt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ['$usedBy', []] },
+                          cond: { $eq: ['$$this.userId', user._id] },
+                        },
+                      },
+                    },
+                    '$usageAmount',
+                  ],
+                },
+              },
+              update: { $push: { usedBy: { userId: user._id, usedAt: now } } },
+              options: { new: true, session },
+            });
+            if (!orderCoupon) {
+              throw new BadRequestException(
+                'Invalid coupon or usage limit reached',
+              );
+            }
+          }
+
+          // 3. Pricing
+          let subTotal = totalOrderPrice;
+          let discountPercentage = 0;
+          if (orderCoupon) {
+            const discountAmount =
+              orderCoupon.couponType === CouponTypeEnum.PERCENTAGE
+                ? totalOrderPrice * (orderCoupon.discount / 100)
+                : Math.min(orderCoupon.discount, totalOrderPrice);
+            subTotal = totalOrderPrice - discountAmount;
+            discountPercentage = (discountAmount / totalOrderPrice) * 100;
+          }
+
+          // 4. Create the order
+          placedOrder = await this.orderRepo.createOne({
+            data: {
+              ...dto,
+              total: totalOrderPrice,
+              subTotal,
+              discountPercentage,
+              ...(orderCoupon ? { couponId: orderCoupon._id } : {}),
+              orderId: randomUUID().slice(0, 6),
+              createdBy: user._id,
+              products: orderedProducts,
+              idempotencyKey,
+              requestHash,
+            },
+            options: { session },
+          });
+
+          // 5. Clear the cart (same session)
+          await this.cartService.remove(user, { session });
         },
-      })) as hydratedCouponDocument;
-      if (!orderCoupon) {
-        throw new NotFoundException('Invalid coupon');
-      }
-      /////////////////// checking coupon usage amount
-      if (orderCoupon.usedBy) {
-        const couponUsageLeft = orderCoupon.usedBy.filter(
-          (usedByInfo) => usedByInfo.userId.toString() === user._id.toString(),
-        ).length;
-        if (couponUsageLeft >= orderCoupon.usageAmount) {
-          throw new BadRequestException('Coupon usage limit reached');
-        }
-      }
-    }
-    const orderedProducts: IOrderedProducts[] = [];
-    let totalOrderPrice: number = 0;
-    for (const cartProduct of userCart.products) {
-      const matchingProduct = await this.productRepo.findOne({
-        filter: {
-          _id: cartProduct.productId,
-          stock: { $gte: cartProduct.quantity },
-        },
-      });
+        { writeConcern: { w: 'majority' }, readConcern: { level: 'snapshot' } },
+      );
 
-      if (!matchingProduct) {
-        throw new NotFoundException('Some products were not found');
+      this.realtimeGateway.changeStock(productsStock);
+      return placedOrder.toJSON();
+    } catch (err: unknown) {
+      //  Race path: two identical requests arrived at the same moment.
+      //    The unique index rejected the loser (and its transaction rolled back,so its stock decrements and coupon use were undone).
+      if (isDuplicateKeyError(err, 'idempotencyKey')) {
+        const winner = await this.findReplay(
+          user._id,
+          idempotencyKey,
+          requestHash,
+        );
+        if (winner) return winner;
       }
-      const sum = cartProduct.quantity * matchingProduct.finalPrice;
-      orderedProducts.push({
-        productId: cartProduct.productId as Types.ObjectId,
-        quantity: cartProduct.quantity,
-        unitAmount: matchingProduct.finalPrice,
-        total: sum,
-      });
-      totalOrderPrice += sum;
+      throw err;
+    } finally {
+      await session.endSession();
     }
-    let subTotal = totalOrderPrice;
-    let discountPercentage = 0;
-    if (orderCoupon) {
-      discountPercentage =
-        orderCoupon.discount &&
-        orderCoupon.couponType === CouponTypeEnum.PERCENTAGE
-          ? orderCoupon.discount
-          : Number(
-              ((orderCoupon.discount as number) / totalOrderPrice).toFixed(2),
-            ) * 100;
-
-      if (discountPercentage) {
-        subTotal =
-          subTotal - subTotal * Number((discountPercentage / 100).toFixed(2));
-      }
-    }
-    const placedOrder = await this.orderRepo.createOne({
-      data: {
-        address,
-        currency,
-        phoneNumber,
-        total: totalOrderPrice,
-        subTotal,
-        discountPercentage,
-        note,
-        ...(orderCoupon ? { couponId: orderCoupon._id } : {}),
-        orderId: randomUUID().slice(0, 6),
-        createdBy: user._id,
-        products: orderedProducts,
-        paymentType,
-      },
-    });
-    if (!placedOrder) {
-      throw new BadRequestException('Failed to create order');
-    }
-    const productsStock: { productId: Types.ObjectId; stock: number }[] = [];
-    for (const cartProduct of userCart.products) {
-      const matchingProduct = await this.productRepo.findOneAndUpdate({
-        filter: { _id: cartProduct.productId },
-        update: { $inc: { stock: -cartProduct.quantity } },
-      });
-      productsStock.push({
-        productId: matchingProduct?._id as Types.ObjectId,
-        stock: matchingProduct?.stock as number,
-      });
-    }
-
-    if (orderCoupon) {
-      orderCoupon.usedBy?.push({
-        userId: user._id,
-        orderId: placedOrder._id,
-        usedAt: new Date(Date.now()),
-      });
-      await orderCoupon.save();
-    }
-    await this.cartService.remove(user);
-    this.realtimeGateway.changeStock(productsStock);
-    return placedOrder.toJSON();
   }
   async confirmOrder(
     { orderId }: ConfirmOrderParamsDto,

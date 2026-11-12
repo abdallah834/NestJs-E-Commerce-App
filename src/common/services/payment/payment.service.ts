@@ -5,11 +5,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
-import StripeConstructor, {
-  CouponCreateParams,
-  PaymentIntentCreateParams,
-  Response,
-} from 'stripe';
+import { Session } from 'node_modules/stripe/cjs/resources/Checkout';
+
+import { WebhookPayload } from 'node_modules/stripe/esm/Webhooks';
+import StripeConstructor from 'stripe';
 
 @Injectable()
 export class PaymentService {
@@ -30,7 +29,7 @@ export class PaymentService {
     mode = 'payment',
     line_items,
   }: StripeConstructor.Checkout.SessionCreateParams): Promise<
-    Response<StripeConstructor.Checkout.Session>
+    StripeConstructor.Response<Session>
   > {
     const session = await this.stripe.checkout.sessions.create({
       customer_email,
@@ -44,8 +43,8 @@ export class PaymentService {
     return session;
   }
   async createStripeCoupon(
-    couponCreationParams: CouponCreateParams,
-  ): Promise<Response<StripeConstructor.Coupon>> {
+    couponCreationParams: StripeConstructor.CouponCreateParams,
+  ): Promise<StripeConstructor.Response<StripeConstructor.Coupon>> {
     return await this.stripe.coupons.create(couponCreationParams);
   }
   async createPaymentMethod(token: string) {
@@ -54,12 +53,14 @@ export class PaymentService {
       card: { token },
     });
   }
-  async createPaymentIntent(IntentCreationParams: PaymentIntentCreateParams) {
+  async createPaymentIntent(
+    IntentCreationParams: StripeConstructor.PaymentIntentCreateParams,
+  ) {
     return await this.stripe.paymentIntents.create(IntentCreationParams);
   }
   stripeWebhook(req: Request): StripeConstructor.CheckoutSessionCompletedEvent {
     const event: StripeConstructor.Event = this.stripe.webhooks.constructEvent(
-      req.body,
+      req.body as WebhookPayload,
       req.headers['stripe-signature'] as string,
       this.configService.get<string>('STRIPE_HOOK_SECRET') as string,
     );

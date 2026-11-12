@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -16,6 +17,7 @@ import {
   CancelOrderParamsDto,
   ConfirmOrderParamsDto,
   CreateOrderDto,
+  IdempotencyDto,
   orderCheckoutTokenDto,
 } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -31,8 +33,9 @@ export class OrderController {
   async create(
     @Body() createOrderDto: CreateOrderDto,
     @User() user: hydratedUserDocument,
+    @Headers('idempotency-key') idempotencyKey?: IdempotencyDto,
   ): Promise<IOrder> {
-    return await this.orderService.create(createOrderDto, user);
+    return await this.orderService.create(createOrderDto, user, idempotencyKey);
   }
   @Auth({ roles: [RoleEnums.ADMIN] })
   @Patch('/:orderId/confirm')

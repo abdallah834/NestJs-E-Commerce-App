@@ -5,7 +5,7 @@ import { IUser } from './user.interface';
 export interface ICoupon {
   couponType: CouponTypeEnum;
   couponName: string;
-  discount?: number;
+  discount: number;
   slug?: string;
   image: string;
   startDate: Date;
