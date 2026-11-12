@@ -24,6 +24,7 @@ import { CartService } from './../cart/cart.service';
 import {
   ConfirmOrderParamsDto,
   CreateOrderDto,
+  IdempotencyDto,
   orderCheckoutTokenDto,
 } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -79,11 +80,15 @@ export class OrderService {
   async create(
     dto: CreateOrderDto,
     user: hydratedUserDocument,
-    idempotencyKey: string,
+    idempotencyKey: string | IdempotencyDto,
   ): Promise<IOrder> {
     const requestHash = this.hashRequest(dto);
     // must come before the cart check .
-    const replay = await this.findReplay(user._id, idempotencyKey, requestHash);
+    const replay = await this.findReplay(
+      user._id,
+      idempotencyKey as string,
+      requestHash,
+    );
     // Returning the original result.
     if (replay) return replay;
 
@@ -208,7 +213,7 @@ export class OrderService {
       if (isDuplicateKeyError(err, 'idempotencyKey')) {
         const winner = await this.findReplay(
           user._id,
-          idempotencyKey,
+          idempotencyKey as string,
           requestHash,
         );
         if (winner) return winner;

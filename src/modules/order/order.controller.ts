@@ -33,7 +33,7 @@ export class OrderController {
   async create(
     @Body() createOrderDto: CreateOrderDto,
     @User() user: hydratedUserDocument,
-    @Headers('idempotency-key') idempotencyKey?: IdempotencyDto,
+    @Headers('idempotency-key') idempotencyKey: IdempotencyDto,
   ): Promise<IOrder> {
     return await this.orderService.create(createOrderDto, user, idempotencyKey);
   }

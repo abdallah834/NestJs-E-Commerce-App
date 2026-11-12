@@ -113,7 +113,7 @@ export class CartService {
 
   async remove(
     user: hydratedUserDocument,
-    { session }: { session: ClientSession },
+    { session }: { session?: ClientSession } = {},
   ): Promise<ICart> {
     const userCart = await this.cartRepo.findOneAndDelete({
       filter: { createdBy: user._id },
