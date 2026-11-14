@@ -29,8 +29,9 @@ import {
 } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { RealTimeGateWay } from '../realtime/realtime.gateway';
-import { InjectConnection } from 'node_modules/@nestjs/mongoose/dist';
+
 import { isDuplicateKeyError } from 'src/common/utils/mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 
 @Injectable()
 export class OrderService {

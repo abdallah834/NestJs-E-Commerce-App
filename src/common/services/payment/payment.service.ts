@@ -5,10 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
-import { Session } from 'node_modules/stripe/cjs/resources/Checkout';
 
-import { WebhookPayload } from 'node_modules/stripe/esm/Webhooks';
-import StripeConstructor from 'stripe';
+import StripeConstructor, { Checkout } from 'stripe';
 
 @Injectable()
 export class PaymentService {
@@ -28,9 +26,7 @@ export class PaymentService {
     discounts = [],
     mode = 'payment',
     line_items,
-  }: StripeConstructor.Checkout.SessionCreateParams): Promise<
-    StripeConstructor.Response<Session>
-  > {
+  }: Checkout.SessionCreateParams) {
     const session = await this.stripe.checkout.sessions.create({
       customer_email,
       metadata,
@@ -60,7 +56,7 @@ export class PaymentService {
   }
   stripeWebhook(req: Request): StripeConstructor.CheckoutSessionCompletedEvent {
     const event: StripeConstructor.Event = this.stripe.webhooks.constructEvent(
-      req.body as WebhookPayload,
+      req.body as string,
       req.headers['stripe-signature'] as string,
       this.configService.get<string>('STRIPE_HOOK_SECRET') as string,
     );

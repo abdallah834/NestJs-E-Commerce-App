@@ -164,5 +164,3 @@ orderMongoDBSchema.index(
     partialFilterExpression: { idempotencyKey: { $type: 'string' } },
   },
 );
-// fixing orderId collision risk
-orderMongoDBSchema.index({ orderId: 1 }, { unique: true });

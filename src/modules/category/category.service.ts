@@ -19,8 +19,7 @@ import {
   UpdateCategoryDto,
   UpdateCategoryParamsDto,
 } from './dto/update-category.dto';
-import { slugify } from 'node_modules/zod/v4/core/util.cjs';
-
+import slugify from 'slugify';
 @Injectable()
 export class CategoryService {
   constructor(

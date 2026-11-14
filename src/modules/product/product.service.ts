@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { mongo } from 'mongoose';
-import { slugify } from 'node_modules/zod/v4/core/util.cjs';
+import slugify from 'slugify';
 import { IMulterFile, IPaginate, IProduct } from 'src/common/interfaces';
 import { BrandRepo, CategoryRepo, ProductRepo } from 'src/common/repository';
 import { S3Service } from 'src/common/services';
