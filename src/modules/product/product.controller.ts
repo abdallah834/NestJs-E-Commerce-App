@@ -27,6 +27,7 @@ import { ProductService } from './product.service';
 import { PaginationDto } from 'src/common/dto';
 import { CustomCacheInterceptor } from 'src/common/interceptors/cache.interceptor';
 import { Throttle } from '@nestjs/throttler';
+import { FileFieldsValidationPipe } from 'src/common/pipes/validation.pipe';
 
 @Controller('product')
 export class ProductController {
@@ -46,13 +47,7 @@ export class ProductController {
   create(
     @Body() createProductDto: CreateProductDto,
     @User() user: hydratedUserDocument,
-    @UploadedFiles(
-      new ParseFilePipe({
-        validators: [
-          new FileTypeValidator({ fileType: /^image\/(jpeg|jpg|png)$/ }),
-        ],
-      }),
-    )
+    @UploadedFiles(new FileFieldsValidationPipe())
     files: { image: IMulterFile[]; gallery?: IMulterFile[] },
   ) {
     return this.productService.create(createProductDto, user, files);

@@ -47,7 +47,6 @@ export class CreateProductDto implements Partial<IProduct> {
   @Min(0)
   @Max(999999999)
   originalPrice!: number;
-  @IsNotEmpty()
   @Transform(({ value }) => Number(value))
   @IsNumber()
   @IsPositive()

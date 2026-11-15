@@ -4,6 +4,8 @@ import {
   // BadRequestException,
   Injectable,
   PipeTransform,
+  ParseFilePipe,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { ZodType } from 'zod';
 
@@ -35,5 +37,20 @@ export class CustomValidationPipe<T = any> implements PipeTransform {
       });
     }
     return value;
+  }
+}
+
+@Injectable()
+export class FileFieldsValidationPipe implements PipeTransform {
+  private readonly pipe = new ParseFilePipe({
+    validators: [
+      new FileTypeValidator({ fileType: /^image\/(jpeg|jpg|png)$/ }),
+    ],
+  });
+
+  async transform(files: Record<string, Express.Multer.File[]>) {
+    const flat = Object.values(files ?? {}).flat();
+    await this.pipe.transform(flat); // throws if any file is invalid
+    return files; // keep the original shape
   }
 }
