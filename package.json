@@ -59,7 +59,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.9.0",
     "mongoose": "^9.12.1",
-    "multer": "2.5.0",
+    "multer": "^2.5.0",
     "nodemailer": "^10.0.9",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -115,5 +115,5 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   },
-  "packageManager": "pnpm@12.18.0"
+  "packageManager": "pnpm@12.21.0"
 }
