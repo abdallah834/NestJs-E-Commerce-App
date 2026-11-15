@@ -44,7 +44,7 @@ export class SignupBodyDTO extends LoginBodyDTO {
     message: 'Username must exceed 2 characters and be less than 20',
   })
   @IsEnum(LanguageEnum, { message: 'only AR and EN languages are supported' })
-  preferredLanguage?: string;
+  preferredLanguage?: string = 'EN';
   @IsNotEmpty({ message: 'Username is required' })
   username!: string;
   //using custom decorator to match between 2 or more fields

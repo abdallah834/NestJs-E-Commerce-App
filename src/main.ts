@@ -1,11 +1,11 @@
-import { ValidationPipe } from '@nestjs/common';
+import { InternalServerErrorException, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import * as ngrok from '@ngrok/ngrok';
+import * as express from 'express';
+import { resolve } from 'path';
 import { AppModule } from './app.module';
 import { ResponseInterceptor, WatchInterceptor } from './common/interceptors';
 import { LanguageInterceptor } from './common/interceptors/language.interceptor';
-import * as express from 'express';
-import { resolve } from 'path';
-import * as ngrok from '@ngrok/ngrok';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { abortOnError: false });
@@ -38,6 +38,9 @@ async function bootstrap() {
 
     console.log(`Public ngrok URL: ${listener.url()}`);
   }
+  app.enableShutdownHooks();
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  throw new InternalServerErrorException(`${err}`);
+});

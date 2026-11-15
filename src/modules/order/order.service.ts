@@ -69,8 +69,9 @@ export class OrderService {
     const existing = await this.orderRepo.findOne({
       filter: { createdBy: userId, idempotencyKey },
     });
+    console.log(existing);
     if (!existing) return null;
-
+    console.log(existing.requestHash, requestHash);
     if (existing.requestHash !== requestHash) {
       throw new UnprocessableEntityException(
         'This Idempotency-Key was already used with a different request',
@@ -116,7 +117,7 @@ export class OrderService {
             const product = await this.productRepo.findOneAndUpdate({
               filter: { _id: item.productId, stock: { $gte: item.quantity } },
               update: { $inc: { stock: -item.quantity } },
-              options: { new: true, session },
+              options: { returnDocument: 'after', session },
             });
             if (!product) {
               throw new ConflictException(

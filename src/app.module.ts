@@ -19,6 +19,7 @@ import { CouponModule } from './modules/coupon/coupon.module';
 import { RealTimeModule } from './modules/realtime/realtime.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { NgrokService } from './common/services/ngrok/ngrok.service';
 @Module({
   // we mainly import modules here along with their imports ex:AuthenticationModule ---> AuthenticationController ---> AuthenticationService
 
@@ -53,6 +54,10 @@ import { APP_GUARD } from '@nestjs/core';
     RealTimeModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    AppService,
+    NgrokService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

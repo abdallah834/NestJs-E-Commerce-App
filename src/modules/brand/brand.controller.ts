@@ -45,6 +45,7 @@ export class BrandController {
     )
     file: IMulterFile,
   ): Promise<IBrand> {
+    console.log(file);
     return await this.brandService.create(createBrandDto, user, file);
   }
   ////////////////////////////////////////////////////////// update brand

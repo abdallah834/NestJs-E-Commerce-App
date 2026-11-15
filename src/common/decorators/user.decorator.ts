@@ -16,6 +16,7 @@ export const User = createParamDecorator(
         // to access the incoming http request we use:
         user = context.switchToHttp().getRequest<IAuthenticationRequest>()
           .credentials.userAccount;
+
         break;
       case 'graphql':
         // to access the incoming http request we use:

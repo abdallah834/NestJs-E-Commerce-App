@@ -33,7 +33,7 @@ export class RealTimeGateWay
 
   afterInit() {
     // server: Server
-    console.log('Gateway is initialized');
+    console.log('Gateway initialized');
   }
   async handleConnection(client: Socket) {
     try {

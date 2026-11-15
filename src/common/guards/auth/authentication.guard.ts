@@ -1,12 +1,14 @@
 import {
-  BadRequestException,
   CanActivate,
   ExecutionContext,
+  HttpException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { TokenExpiredError } from 'jsonwebtoken';
+import { WsException } from '@nestjs/websockets';
+import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { tokenTypeName } from 'src/common/decorators';
 import { TokenType } from 'src/common/enums';
 import {
@@ -16,76 +18,95 @@ import {
 } from 'src/common/interfaces';
 import { TokenService } from 'src/common/services';
 import { getAuthenticatedSocket } from '../../utils/socketIo';
+
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
   constructor(
     private readonly tokenService: TokenService,
     private readonly reflector: Reflector,
   ) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const contextType = context.getType<CtxType>();
+
     try {
-      // in order for the reflector to work it needs a specified scope class or handler
       const tokenType =
         this.reflector.getAllAndOverride<TokenType>(tokenTypeName, [
           context.getHandler(),
           context.getClass(),
         ]) ?? TokenType.ACCESS;
-      let req!: IAuthenticationRequest | IAuthenticationSocket;
-      let authorization!: string;
-      switch (context.getType<CtxType>()) {
-        case 'http':
-          req = context.switchToHttp().getRequest<IAuthenticationRequest>();
-          authorization = req.headers.authorization as string;
-          break;
-        case 'graphql':
-          // to get the context for GQL requests
-          req = GqlExecutionContext.create(context).getContext<{
-            req: IAuthenticationRequest;
-          }>().req;
-          authorization = req.headers['authorization'] as string;
-          break;
-        case 'ws':
-          req = context.switchToWs().getClient<IAuthenticationSocket>();
-          authorization = `Bearer ${getAuthenticatedSocket(req)}`;
-          break;
-        default:
-          break;
-      }
-      if (!authorization && context.getType<CtxType>() === 'http') {
-        throw new BadRequestException('No bearer auth provided');
-      } else if (
-        (!authorization && context.getType<CtxType>() === 'graphql') ||
-        (!authorization && context.getType<CtxType>() === 'ws')
-      ) {
-        return false;
-      }
-      const [flag, token] = authorization.split(' ');
 
-      if (!flag || !token) {
-        throw new BadRequestException('Missing authorization parts');
-      }
-      switch (flag) {
-        default: {
-          // "Bearer"
-          req.credentials = await this.tokenService.decodeToken({
-            token,
-            tokenType,
-          });
+      const { req, authorization } = this.getRequestAndAuthorization(context);
+      const token = this.extractBearerToken(authorization);
 
-          break;
-        }
-      }
+      req.credentials = await this.tokenService.decodeToken({
+        token,
+        tokenType,
+      });
+
       return true;
     } catch (error) {
-      if (error instanceof TokenExpiredError) {
-        throw new BadRequestException('JWT token expired');
-      } else if (
-        context.getType<CtxType>() === 'graphql' ||
-        context.getType<CtxType>() === 'ws'
-      ) {
-        return false;
-      }
-      return false;
+      throw this.toContextException(error, contextType);
     }
+  }
+
+  private getRequestAndAuthorization(context: ExecutionContext): {
+    req: IAuthenticationRequest | IAuthenticationSocket;
+    authorization?: string;
+  } {
+    switch (context.getType<CtxType>()) {
+      case 'http': {
+        const req = context.switchToHttp().getRequest<IAuthenticationRequest>();
+        return { req, authorization: req.headers.authorization };
+      }
+      case 'graphql': {
+        const { req } = GqlExecutionContext.create(context).getContext<{
+          req: IAuthenticationRequest;
+        }>();
+        return { req, authorization: req.headers.authorization };
+      }
+      case 'ws': {
+        const client = context.switchToWs().getClient<IAuthenticationSocket>();
+        const token = getAuthenticatedSocket(client);
+        return {
+          req: client,
+          authorization: token ? `Bearer ${token}` : undefined,
+        };
+      }
+      default:
+        throw new UnauthorizedException('Unsupported context type');
+    }
+  }
+
+  private extractBearerToken(authorization?: string): string {
+    if (!authorization) {
+      throw new UnauthorizedException('No authorization provided');
+    }
+    const [scheme, token] = authorization.split(' ');
+    if (scheme !== 'Bearer' || !token) {
+      throw new UnauthorizedException(
+        'Authorization must be in the format "Bearer <token>"',
+      );
+    }
+    return token;
+  }
+
+  private toContextException(error: unknown, contextType: CtxType): Error {
+    let exception: Error;
+
+    if (error instanceof HttpException) {
+      exception = error;
+    } else if (error instanceof TokenExpiredError) {
+      exception = new UnauthorizedException('JWT token expired');
+    } else if (error instanceof JsonWebTokenError) {
+      exception = new UnauthorizedException('Invalid JWT token');
+    } else {
+      // handling unexpected failure: DB down/bug
+      return error as Error;
+    }
+
+    return contextType === 'ws'
+      ? new WsException(exception.message)
+      : exception;
   }
 }
