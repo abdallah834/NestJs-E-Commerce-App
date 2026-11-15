@@ -27,7 +27,7 @@ export class NgrokService
 
   async onApplicationShutdown(signal?: string) {
     if (!this.listener) return;
-
+    console.log('SHUTDOWN HOOK FIRED', signal);
     try {
       await this.listener.close();
       this.logger.log(`ngrok tunnel closed (${signal ?? 'shutdown'})`);

@@ -1,6 +1,5 @@
-import { InternalServerErrorException, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import * as ngrok from '@ngrok/ngrok';
 import * as express from 'express';
 import { resolve } from 'path';
 import { AppModule } from './app.module';
@@ -30,17 +29,7 @@ async function bootstrap() {
   await app.listen((process.env.PORT as string) || 3000, '0.0.0.0');
   console.log(`Server is running on port: ${process.env.PORT}`);
 
-  if (process.env.NODE_ENV !== 'production') {
-    const listener = await ngrok.forward({
-      addr: process.env.PORT,
-      authtoken_from_env: true,
-    });
-
-    console.log(`Public ngrok URL: ${listener.url()}`);
-  }
   app.enableShutdownHooks();
 }
 
-bootstrap().catch((err) => {
-  throw new InternalServerErrorException(`${err}`);
-});
+bootstrap();

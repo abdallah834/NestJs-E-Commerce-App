@@ -182,7 +182,7 @@ export class TokenService {
         secret: this.USER_TOKEN_SECRET_KEY,
       });
     } catch (error) {
-      throw new BadRequestException(`${error}`);
+      throw new UnauthorizedException(`${error}`);
     }
 
     const decodedToken = this.JWTService.decode<JwtPayload>(token);
